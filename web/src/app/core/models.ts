@@ -170,10 +170,18 @@ export type ActionType = 'createRecord' | 'updateRecord' | 'sendEmail' | 'callAp
   | 'if' | 'forEach' | 'wait' | 'transform';
 export type ConditionOp = 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'empty' | 'notEmpty';
 
-export interface ConditionDef {
+export type ConditionJoin = 'and' | 'or';
+
+export interface ConditionRule {
   field: string;
   op: ConditionOp;
   value: string | null;
+}
+
+/** 1ª regra nos próprios campos (o formato antigo continua valendo); demais em `more`. join 'or' = basta uma. */
+export interface ConditionDef extends ConditionRule {
+  join?: ConditionJoin;
+  more?: ConditionRule[];
 }
 
 export interface ActionDef {

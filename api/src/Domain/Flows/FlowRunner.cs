@@ -150,12 +150,18 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
     private async Task<JsonNode> IfAsync(Execution x, ActionDef step, RunStep span, int depth)
     {
         var c = step.Condition ?? new ConditionDef();
-        var condition = new ConditionDef { Field = Unbrace(c.Field), Op = c.Op, Value = c.Value };
-        var ok = Conditions.Evaluate(condition, x.Ctx);
-        span.Input = Store(x, new JsonObject
+        var condition = new ConditionDef
         {
-            ["valor"] = x.Ctx.GetValueOrDefault(condition.Field), ["operador"] = condition.Op, ["comparar"] = Template.Render(condition.Value, x.Ctx)
-        }.ToJsonString());
+            Field = Unbrace(c.Field), Op = c.Op, Value = c.Value, Join = c.Join,
+            More = [.. c.More.Select(r => new ConditionRule { Field = Unbrace(r.Field), Op = r.Op, Value = r.Value })]
+        };
+        var ok = Conditions.Evaluate(condition, x.Ctx);
+        var rules = condition.ActiveRules().Select(r => (JsonNode)new JsonObject
+        {
+            ["valor"] = x.Ctx.GetValueOrDefault(r.Field), ["operador"] = r.Op, ["comparar"] = Template.Render(r.Value, x.Ctx)
+        }).ToList();
+        span.Input = Store(x, (rules.Count == 1 ? rules[0]
+            : new JsonObject { ["juntar"] = condition.Join == ConditionDef.Or ? "ou" : "e", ["regras"] = new JsonArray([.. rules]) }).ToJsonString());
         await RunListAsync(x, ok ? step.Steps : step.Else, span.Id, depth + 1, topLevel: false);
         return new JsonObject { ["result"] = ok };
     }

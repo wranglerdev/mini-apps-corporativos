@@ -1,6 +1,7 @@
 import {
   ActionDef, ActionType, AppDefinition, ComponentDef, ComponentType, FieldDef, FieldType, PageDef, TableDef, WorkflowDef,
 } from '../../core/models';
+import { describeCondition } from './condition-ops';
 
 // Operações puras do editor. Recebem a definição (já clonada pelo chamador) e a mutam.
 // Toda regra do editor fica aqui para ser testável sem DOM (ver editor-ops.spec.ts).
@@ -333,9 +334,7 @@ export function triggerSummary(def: AppDefinition, t: WorkflowDef['trigger']): s
 
 /** Linha de resumo do nó de condição ('' = sem condição: as ações rodam sempre). */
 export function conditionSummary(c: WorkflowDef['condition']): string {
-  if (!c?.field) return '';
-  const op = OP_TEXT[c.op] ?? c.op;
-  return c.op === 'empty' || c.op === 'notEmpty' ? `${c.field} ${op}` : `${c.field} ${op} ${c.value ?? ''}`.trim();
+  return describeCondition(c, OP_TEXT);
 }
 
 /** Linha de resumo de um passo (ação). */

@@ -1,13 +1,14 @@
 import { Component, computed, inject, input, model, signal } from '@angular/core';
 import { Api, errorMessage } from '../../core/api';
-import { ActionDef, ActionType, AppDefinition, Frequency, TriggerType, WorkflowDef } from '../../core/models';
+import { ActionDef, ActionType, AppDefinition, ConditionDef, Frequency, TriggerType, WorkflowDef } from '../../core/models';
 import { LAYOUT } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import {
   ACTIONS, ACTION_TYPES, TRIGGER_LABELS, WEEKDAYS, actionSummary, addWorkflow, conditionSummary, newAction, triggerSummary,
 } from './editor-ops';
 import { PropControl } from './prop-control';
-import { CONDITION_OPS } from '../runtime/visibility';
+import { ConditionEditor } from './condition-editor';
+import { hasCondition, orNull } from './condition-ops';
 
 type Node = 'trigger' | 'condition' | number;
 
@@ -17,7 +18,7 @@ type Node = 'trigger' | 'condition' | number;
  */
 @Component({
   selector: 'app-workflows-tab',
-  imports: [UI, LAYOUT, PropControl],
+  imports: [UI, LAYOUT, PropControl, ConditionEditor],
   template: `
     @let d = def();
     <div class="editor">
@@ -133,11 +134,9 @@ type Node = 'trigger' | 'condition' | number;
                 <p class="panel__hint">Sem condição, os passos rodam sempre. Use um campo do registro, um campo de entrada da página ou user.*.</p>
               </div>
               <div class="panel__section">
-                <ui-input label="Campo / variável" [value]="w.condition?.field ?? ''" (valueChange)="setCondition('field', $event)" />
-                <ui-select label="Operador" [options]="ops" [value]="w.condition?.op ?? 'eq'" (valueChange)="setCondition('op', $event)" />
-                <ui-input label="Valor" [value]="w.condition?.value ?? ''" (valueChange)="setCondition('value', $event)" />
+                <app-condition-editor [condition]="w.condition" (changed)="setCondition($event)" />
               </div>
-              @if (w.condition?.field) {
+              @if (hasCondition(w.condition)) {
                 <div class="panel__section">
                   <button uiButton variant="danger" (click)="clearCondition()">Remover condição</button>
                 </div>
@@ -199,7 +198,7 @@ export class WorkflowsTab {
   /** Manual e webhook (com chave própria) são só de projetos de workflow. */
   protected readonly triggers = (Object.keys(TRIGGER_LABELS) as TriggerType[])
     .filter((t) => t !== 'manual' && t !== 'webhook').map((t) => ({ value: t, label: TRIGGER_LABELS[t] }));
-  protected readonly ops = CONDITION_OPS;
+  protected readonly hasCondition = hasCondition;
   protected readonly wfId = signal<string | null>(null);
   protected readonly wf = computed<WorkflowDef | null>(() => {
     const list = this.def().workflows;
@@ -279,8 +278,8 @@ export class WorkflowsTab {
   }
 
   /** Condição com campo vazio é ignorada pelo backend (sempre verdadeira). */
-  protected setCondition(key: 'field' | 'op' | 'value', value: string) {
-    this.edit((w) => (w.condition = { ...(w.condition ?? { field: '', op: 'eq', value: null }), [key]: value }));
+  protected setCondition(condition: ConditionDef) {
+    this.edit((w) => (w.condition = orNull(condition)));
   }
 
   protected clearCondition() {

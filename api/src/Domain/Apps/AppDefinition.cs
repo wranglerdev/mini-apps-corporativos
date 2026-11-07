@@ -271,12 +271,27 @@ public static class Schedule
     };
 }
 
-/// <summary>Op: eq | neq | gt | lt | contains | empty | notEmpty. Value aceita {{variáveis}}.</summary>
-public class ConditionDef
+/// <summary>Uma regra. Op: eq | neq | gt | lt | contains | empty | notEmpty. Value aceita {{variáveis}}.</summary>
+public class ConditionRule
 {
     public string Field { get; set; } = "";
     public string Op { get; set; } = "eq";
     public string? Value { get; set; }
+}
+
+/// <summary>
+/// Condição: a 1ª regra fica nos próprios campos (formato antigo, que continua valendo) e as demais em More.
+/// Join "or" = basta uma regra; qualquer outro valor = todas (E). Regras com Field vazio são ignoradas.
+/// Um nível só: para misturar E com OU, aninhe "se" (workflow) ou containers (visibilidade).
+/// </summary>
+public class ConditionDef : ConditionRule
+{
+    public const string And = "and";
+    public const string Or = "or";
+    public string Join { get; set; } = And;
+    public List<ConditionRule> More { get; set; } = [];
+
+    public List<ConditionRule> ActiveRules() => [.. More.Prepend(this).Where(r => !string.IsNullOrWhiteSpace(r.Field))];
 }
 
 /// <summary>Params e Values aceitam {{variáveis}} do contexto (campos do registro, inputs da página, user.email...).</summary>

@@ -43,8 +43,13 @@ describe('Workflow: editor', () => {
     insertNear(d, 'callApi', null);
     const email = insertNear(d, 'sendEmail', 'api1');
     email.params['subject'] = 'Total {{steps.api1.body.total}}';
+    const se = insertNear(d, 'if', 'email1');
+    se.condition = { field: 'steps.api1.status', op: 'eq', value: '200', join: 'or', more: [{ field: 'steps.api1.body.total', op: 'gt', value: '0' }] };
     renameStep(d, 'api1', 'buscar');
     expect(email.params['subject']).toBe('Total {{steps.buscar.body.total}}');
+    expect(se.condition.field).toBe('steps.buscar.status');
+    expect(se.condition.more![0].field).toBe('steps.buscar.body.total');
+    expect(stepSummary(se)).toBe('steps.buscar.status = 200 ou steps.buscar.body.total > 0');
     expect(idProblem(d, 'email1', 'buscar')).toContain('Já existe');
     expect(idProblem(d, 'email1', '9x')).not.toBeNull();
     expect(idProblem(d, 'email1', 'avisar')).toBeNull();

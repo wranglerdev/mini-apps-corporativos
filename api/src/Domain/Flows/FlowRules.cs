@@ -95,7 +95,7 @@ public static partial class FlowRules
             var label = s.Id is { Length: > 0 } ? $"Passo '{s.Id}'" : "Passo";
             if (string.IsNullOrWhiteSpace(s.Id) || !StepId().IsMatch(s.Id)) errors.Add($"{label}: id inválido (letras, números e _; começa com letra).");
             if (s.Type is Actions.Navigate or Actions.RunWorkflow) errors.Add($"{label}: ação não disponível em workflows.");
-            if (s.Type == Actions.If && string.IsNullOrWhiteSpace(s.Condition?.Field)) errors.Add($"{label}: informe a condição.");
+            if (s.Type == Actions.If && (s.Condition is null || s.Condition.ActiveRules().Count == 0)) errors.Add($"{label}: informe a condição.");
             if (s.Type == Actions.ForEach && string.IsNullOrWhiteSpace(s.Params.GetValueOrDefault("list"))) errors.Add($"{label}: informe a lista.");
             if (s.Type == Actions.Wait && !(int.TryParse(s.Params.GetValueOrDefault("seconds"), out var w) && w is > 0 and <= MaxWaitSeconds))
                 errors.Add($"{label}: espera entre 1 e {MaxWaitSeconds} segundos.");

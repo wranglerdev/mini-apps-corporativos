@@ -433,6 +433,10 @@ app-form-runner > app-page { display: flex; flex: 1; }
 .tree-item.active .q-badge:not(.q-badge--soft) { background: var(--pen); color: var(--on-solid); }
 .q-req { color: var(--bad); }
 .option-row { display: flex; align-items: flex-end; gap: 6px; }
+/* Editor de condição (E/OU): uma caixa por regra */
+.condition-rule { display: flex; flex-direction: column; gap: 4px; }
+.condition-rule + .condition-rule { border-top: 1px dashed var(--rule-soft); padding-top: 8px; margin-top: 4px; }
+.condition-rule__head { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-xs); color: var(--ink-soft); }
 .option-row ui-input { flex: 1; min-width: 0; }
 .option-row .q-badge { margin-bottom: 16px; }
 .option-row .icon-btn { margin-bottom: 14px; }

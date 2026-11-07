@@ -1,4 +1,5 @@
 import { ActionDef, ActionType, AppDefinition, RunStep, WorkflowDef } from '../../core/models';
+import { describeCondition, hasCondition } from '../builder/condition-ops';
 import { scheduleLabel } from '../builder/editor-ops';
 
 // Regras puras do editor de workflow (projeto) e da linha do tempo das execuções (testadas em flow-ops.spec.ts).
@@ -129,7 +130,10 @@ export function renameStep(def: AppDefinition, oldId: string, newId: string) {
   for (const s of allSteps(flowOf(def).actions)) {
     for (const k of Object.keys(s.params)) s.params[k] = fix(s.params[k]);
     for (const k of Object.keys(s.values)) s.values[k] = fix(s.values[k]);
-    if (s.condition) s.condition = { ...s.condition, field: fix(s.condition.field), value: fix(s.condition.value) };
+    if (s.condition) {
+      const c = s.condition;
+      s.condition = { ...c, field: fix(c.field), value: fix(c.value), more: (c.more ?? []).map((r) => ({ ...r, field: fix(r.field), value: fix(r.value) })) };
+    }
   }
 }
 
@@ -147,7 +151,7 @@ export function stepSummary(s: ActionDef): string {
   switch (s.type) {
     case 'callApi': return p['url'] ? `${p['method'] ?? 'GET'} ${p['url']}` : 'Informe a URL';
     case 'sendEmail': return p['to'] ? `Para ${p['to']}` : 'Informe o destinatário';
-    case 'if': return s.condition?.field ? `${s.condition.field} ${OP[s.condition.op] ?? s.condition.op} ${s.condition.value ?? ''}`.trim() : 'Informe a condição';
+    case 'if': return hasCondition(s.condition) ? describeCondition(s.condition, OP) : 'Informe a condição';
     case 'forEach': return p['list'] ? `${p['as'] || 'item'} em ${p['list']}` : 'Informe a lista';
     case 'wait': return `${p['seconds'] ?? '?'} s`;
     case 'transform': return Object.keys(s.values).join(', ') || 'Defina os campos';

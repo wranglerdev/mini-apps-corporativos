@@ -1,8 +1,9 @@
-import { ConditionDef, CurrentUser, Props } from '../../core/models';
+import { ConditionDef, ConditionRule, CurrentUser, Props } from '../../core/models';
 
 // Avaliação de condições no navegador (visibilidade de componentes).
 // Espelha `Conditions.Evaluate` do backend (api/src/Domain/Workflows/WorkflowEngine.cs): mesmos operadores,
-// comparação sem diferenciar maiúsculas, numérica quando os dois lados são números, {{variáveis}} no valor.
+// comparação sem diferenciar maiúsculas, numérica quando os dois lados são números, {{variáveis}} no valor,
+// várias regras com E (join 'and', padrão) ou OU (join 'or'); regra sem campo é ignorada.
 
 export const CONDITION_OPS = [
   { value: 'eq', label: 'igual a' },
@@ -35,8 +36,19 @@ export function visibilityVars(inputs: Props, user: CurrentUser | null, canManag
   };
 }
 
+/** Regras que valem (com campo): a 1ª vem dos campos da própria condição, as demais de `more`. */
+export function conditionRules(c: ConditionDef | null | undefined): ConditionRule[] {
+  return c ? [c, ...(c.more ?? [])].filter((r) => r.field?.trim()) : [];
+}
+
 export function evaluate(condition: ConditionDef | null | undefined, vars: Vars): boolean {
-  if (!condition?.field?.trim()) return true;
+  const rules = conditionRules(condition);
+  if (!rules.length) return true;
+  const ok = (r: ConditionRule) => matches(r, vars);
+  return condition?.join === 'or' ? rules.some(ok) : rules.every(ok);
+}
+
+function matches(condition: ConditionRule, vars: Vars): boolean {
   const get = (name: string) => {
     const key = Object.keys(vars).find((k) => k.toLowerCase() === name.trim().toLowerCase());
     return key ? (vars[key] ?? '') : '';

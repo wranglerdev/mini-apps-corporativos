@@ -1,10 +1,10 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, computed, inject, input, linkedSignal, model, signal } from '@angular/core';
 import { Api, errorMessage } from '../../core/api';
-import { ActionDef, AppDefinition, ConditionOp, Frequency, RunDetail, WorkflowDef } from '../../core/models';
+import { ActionDef, AppDefinition, ConditionDef, Frequency, RunDetail, WorkflowDef } from '../../core/models';
 import { UI } from '../../ui/ui';
 import { WEEKDAYS } from '../builder/editor-ops';
-import { CONDITION_OPS } from '../runtime/visibility';
+import { ConditionEditor } from '../builder/condition-editor';
 import {
   PALETTE, RUN_STATUS, STEPS, StepType, flowOf, flowTriggerSummary, idProblem, insertNear, isDone, locate, moveStep, removeStep, renameStep,
   resultsByStep, stepSummary, variablesAt,
@@ -20,7 +20,7 @@ const TEST_MAX_POLLS = 120;
  */
 @Component({
   selector: 'app-flow-tab',
-  imports: [UI, NgTemplateOutlet],
+  imports: [UI, NgTemplateOutlet, ConditionEditor],
   template: `
     @let wf = flow();
     <div class="editor">
@@ -106,9 +106,8 @@ const TEST_MAX_POLLS = 120;
               }
             }
             @if (s.type === 'if') {
-              <ui-input label="Valor (variável)" placeholder="steps.api1.body.total" [value]="s.condition?.field ?? ''" (valueChange)="setCondition('field', $event)" />
-              <ui-select label="Condição" [options]="ops" [value]="s.condition?.op ?? 'eq'" placeholder="—" (valueChange)="setCondition('op', $event)" />
-              <ui-input label="Comparar com" [value]="s.condition?.value ?? ''" (valueChange)="setCondition('value', $event)" />
+              <app-condition-editor [condition]="s.condition ?? null" fieldLabel="Valor (variável)" fieldPlaceholder="steps.api1.body.total"
+                valueLabel="Comparar com" (changed)="setCondition($event)" />
               <p class="panel__hint">"Então" roda se a condição for verdadeira; "Senão", se for falsa.</p>
             }
             @if (s.type === 'transform') {
@@ -200,7 +199,6 @@ export class FlowTab {
 
   protected readonly steps = STEPS;
   protected readonly palette = PALETTE;
-  protected readonly ops = CONDITION_OPS;
   protected readonly bodyVar = '{{trigger.body.…}}';
   protected readonly stepOptions = PALETTE.flatMap((g) => g.types).map((t) => ({ value: t, label: STEPS[t].label }));
   protected readonly triggerLabels: Record<string, string> = { manual: 'Manual', schedule: 'Agendado', webhook: 'Webhook' };
@@ -316,12 +314,8 @@ export class FlowTab {
     this.edit((d) => (this.current(d).params[key] = value));
   }
 
-  protected setCondition(key: 'field' | 'op' | 'value', value: string) {
-    this.edit((d) => {
-      const s = this.current(d);
-      const c = s.condition ?? { field: '', op: 'eq', value: '' };
-      s.condition = key === 'op' ? { ...c, op: value as ConditionOp } : { ...c, [key]: value };
-    });
+  protected setCondition(condition: ConditionDef) {
+    this.edit((d) => (this.current(d).condition = condition));
   }
 
   protected setRetries(value: string) {

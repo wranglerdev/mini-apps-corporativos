@@ -88,6 +88,43 @@ public class FlowTests
     }
 
     [Fact]
+    public async Task Se_com_varias_regras_usa_E_ou_OU()
+    {
+        var w = new World();
+        w.Http.Responses.Enqueue(new HttpCallResult(200, """{"total":3,"atrasados":0}"""));
+        var app = await CreateFlowAsync(w, null,
+            Api("buscar", "https://erp/chamados"),
+            new ActionDef
+            {
+                Id = "todas", Type = Actions.If,
+                Condition = new ConditionDef
+                {
+                    Field = "{{steps.buscar.body.total}}", Op = "gt", Value = "0", Join = ConditionDef.And,
+                    More = [new ConditionRule { Field = "steps.buscar.body.atrasados", Op = "gt", Value = "0" }]
+                },
+                Steps = [Email("e1", "gestor-ti@corp.local", "E")]
+            },
+            new ActionDef
+            {
+                Id = "alguma", Type = Actions.If,
+                Condition = new ConditionDef
+                {
+                    Field = "steps.buscar.body.total", Op = "gt", Value = "0", Join = ConditionDef.Or,
+                    More = [new ConditionRule { Field = "{{steps.buscar.body.atrasados}}", Op = "gt", Value = "0" }]
+                },
+                Steps = [Email("e2", "gestor-ti@corp.local", "OU")]
+            });
+
+        var run = await RunAsync(w, app);
+
+        Assert.Equal(RunStatus.Succeeded, run.Status);
+        Assert.Equal(["OU"], w.Email.Sent.Select(e => e.Subject));
+        var input = Steps(w, run).Single(s => s.StepId == "alguma").Input;
+        Assert.Contains("\"juntar\":\"ou\"", input);
+        Assert.Contains("\"regras\"", input);
+    }
+
+    [Fact]
     public async Task Passo_que_falha_e_repetido_com_espera_crescente()
     {
         var w = new World();

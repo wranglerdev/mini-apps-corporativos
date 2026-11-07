@@ -1,9 +1,11 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, model, signal } from '@angular/core';
-import { AppDefinition, ComponentDef, ComponentType, ConditionDef, ConditionOp, PageDef } from '../../core/models';
+import { AppDefinition, ComponentDef, ComponentType, ConditionDef, PageDef } from '../../core/models';
 import { UI } from '../../ui/ui';
 import { RenderedComponent } from '../runtime/rendered-component';
-import { CONDITION_OPS, USER_VARIABLES } from '../runtime/visibility';
+import { USER_VARIABLES } from '../runtime/visibility';
+import { ConditionEditor } from './condition-editor';
+import { hasCondition, orNull } from './condition-ops';
 import {
   COMPONENTS, PALETTE_GROUPS, addPage, duplicateComponent, findComponent, flatten, insertComponent, moveComponent,
   nudgeComponent, outline, pathTo, removeComponent, removePage, summary,
@@ -25,7 +27,7 @@ const SPANS = [
  */
 @Component({
   selector: 'app-design-tab',
-  imports: [UI, RenderedComponent, PropControl, NgTemplateOutlet],
+  imports: [UI, RenderedComponent, PropControl, NgTemplateOutlet, ConditionEditor],
   host: { '(document:keydown)': 'onKey($event)' },
   template: `
     @let d = def();
@@ -63,7 +65,7 @@ const SPANS = [
                   [style.padding-left.px]="8 + row.depth * 14" (click)="selectedId.set(row.component.id)">
                   <ui-icon class="tree-item__icon" [name]="row.component.type" />
                   <span class="tree-item__text">{{ summaryOf(row.component) || labelOf(row.component) }}</span>
-                  @if (row.component.visibleWhen?.field) {
+                  @if (hasCondition(row.component.visibleWhen)) {
                     <span class="tree-item__flag" title="Visível só sob condição">se</span>
                   }
                 </button>
@@ -120,13 +122,9 @@ const SPANS = [
 
           <div class="panel__section">
             <h4>Visibilidade</h4>
-            <ui-select label="Mostrar quando" placeholder="Sempre" [options]="variables()" [value]="c.visibleWhen?.field ?? ''"
-              (valueChange)="setVisibility('field', $event)" />
-            @if (c.visibleWhen?.field) {
-              <ui-select label="Condição" [options]="ops" [value]="c.visibleWhen?.op ?? 'eq'" (valueChange)="setVisibility('op', $event)" />
-              @if (c.visibleWhen?.op !== 'empty' && c.visibleWhen?.op !== 'notEmpty') {
-                <ui-input label="Valor" [value]="c.visibleWhen?.value ?? ''" (valueChange)="setVisibility('value', $event)" />
-              }
+            <app-condition-editor [condition]="c.visibleWhen ?? null" [fields]="variables()" fieldLabel="Mostrar quando"
+              fieldPlaceholder="Sempre" (changed)="setVisibility($event)" />
+            @if (hasCondition(c.visibleWhen)) {
               <p class="panel__hint">Só esconde na tela. Para proteger dados, use as permissões da tabela e dos campos.</p>
             }
           </div>
@@ -174,7 +172,7 @@ const SPANS = [
             } @else {
               <span class="canvas-item__tag">{{ labelOf(c) }}, {{ c.span }}/12</span>
             }
-            @if (c.visibleWhen?.field) {
+            @if (hasCondition(c.visibleWhen)) {
               <span class="canvas-item__flag" title="Visível só quando a condição for atendida">condicional</span>
             }
             @if (c.type === 'container') {
@@ -207,7 +205,7 @@ export class DesignTab {
   protected readonly groups = PALETTE_GROUPS;
   protected readonly leftTabs = [{ value: 'insert', label: 'Inserir' }, { value: 'layers', label: 'Camadas' }];
   protected readonly leftTab = signal('insert');
-  protected readonly ops = CONDITION_OPS;
+  protected readonly hasCondition = hasCondition;
   protected readonly spans = SPANS;
   protected readonly devices = [{ value: 'desktop', label: 'Computador' }, { value: 'mobile', label: 'Celular' }];
   protected readonly device = signal('desktop');
@@ -392,13 +390,8 @@ export class DesignTab {
     this.edit((d) => (this.selectedIn(d).span = Number(span) || 12));
   }
 
-  protected setVisibility(key: keyof ConditionDef, value: string) {
-    this.edit((d) => {
-      const c: ComponentDef = this.selectedIn(d);
-      if (key === 'field' && !value) return void (c.visibleWhen = null);
-      const current: ConditionDef = c.visibleWhen ?? { field: '', op: 'eq', value: null };
-      c.visibleWhen = key === 'op' ? { ...current, op: value as ConditionOp } : { ...current, [key]: value };
-    });
+  protected setVisibility(condition: ConditionDef) {
+    this.edit((d) => (this.selectedIn(d).visibleWhen = orNull(condition)));
   }
 
   protected renamePage(name: string) {

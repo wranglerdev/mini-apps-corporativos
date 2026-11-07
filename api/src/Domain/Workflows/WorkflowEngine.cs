@@ -29,9 +29,16 @@ public static partial class Template
 
 public static class Conditions
 {
+    /// <summary>Espelhada em web/src/app/features/runtime/visibility.ts (evaluate): mudou aqui, mude lá e nos dois testes.</summary>
     public static bool Evaluate(ConditionDef? c, IReadOnlyDictionary<string, string?> ctx)
     {
-        if (c is null || string.IsNullOrWhiteSpace(c.Field)) return true;
+        var rules = c?.ActiveRules() ?? [];
+        if (rules.Count == 0) return true;
+        return c!.Join == ConditionDef.Or ? rules.Any(r => Matches(r, ctx)) : rules.All(r => Matches(r, ctx));
+    }
+
+    private static bool Matches(ConditionRule c, IReadOnlyDictionary<string, string?> ctx)
+    {
         var actual = ctx.GetValueOrDefault(c.Field) ?? "";
         var expected = Template.Render(c.Value, ctx);
         var numeric = double.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var a) &
