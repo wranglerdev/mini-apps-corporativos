@@ -24,7 +24,6 @@
 | Pacote | Onde é usado | Por quê |
 |---|---|---|
 | @angular/core, common, compiler, platform-browser | toda a aplicação | framework |
-| @angular/core/rxjs-interop (parte de core) | `app.ts` (`toSignal` da URL) | layout largo no editor |
 | @angular/router | `app.routes.ts`, guards em `core/auth/auth.ts`, `RunContext.navigate` | rotas builder × runtime |
 | @angular/common/http (parte de common) | `core/api.ts`, `core/auth/auth.ts` (interceptor), `core/auth/dev-auth.ts` | chamadas à API |
 | rxjs | `core/api.ts` (`firstValueFrom`) | exigido pelo HttpClient; convertemos para Promise |
@@ -38,7 +37,7 @@ Sem bibliotecas de UI, drag-and-drop (HTML5 nativo), gráficos (barras em CSS) o
 Workflows sem pacote novo: fila/worker com `BackgroundService`, cron próprio (`Domain/Flows/FlowRules.cs`), segredos com
 `System.Security.Cryptography.AesGcm` e limite de envios de formulário com o rate limiter nativo do ASP.NET Core.
 
-## Última verificação (2026-11-06)
+## Última verificação (2026-11-07)
 
 `npm outdated`, `npm audit --omit=dev`, `dotnet list package --outdated` e `--vulnerable`.
 

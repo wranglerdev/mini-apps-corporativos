@@ -133,3 +133,4 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-07 | Nova UI: base Linear/Vercel com tema escuro, Início estilo Figma, editor com moldura Figma + paleta Bubble, automações em nós estilo n8n |
 | 2026-11-07 | Formulários (MVP do PRD-FORMS): editor de perguntas e lógica, respondente `/f/{slug}`, link público com limite, resumo |
 | 2026-11-07 | Workflows (MVP do PRD-WORKFLOWS): projeto próprio, passos aninhados, fila + worker, histórico em waterfall, tentativas, tempo limite, segredos, webhook e cron |
+| 2026-11-07 | Revisão dos PRDs: limite de 500 passos por execução de workflow; redirecionamento do formulário validado também no servidor |

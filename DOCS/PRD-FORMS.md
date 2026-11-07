@@ -58,7 +58,7 @@ catálogo, template e duplicar. A definição continua um `AppDefinition`:
 | Validação | ✅ | No navegador antes de avançar (`answerProblem`) e no envio (`FormService`): obrigatória do caminho, e-mail, escala 0–10, tipos (`RecordValidator`) |
 | Lógica de pulo | ✅ | `QuestionDef.Jumps: [{ op, value, goTo }]` sobre a resposta da própria pergunta; primeira que bater vence; só para frente (sem ciclos). Mesma regra em `FormFlow` (back) e `form-flow.ts` (front) |
 | Respostas | ✅ | Envio grava só as perguntas do caminho na tabela de respostas (produção) e dispara `recordCreated` |
-| Tela final | ✅ | Título, texto e redirecionamento opcional (só http/https) |
+| Tela final | ✅ | Título, texto e redirecionamento opcional (só http/https, validado ao salvar no `FormFlow.Problems` e de novo no respondente) |
 | Link público | ✅ | Desligado por padrão (aba Compartilhar). Sem login grava como `anonimo`. Limite nativo do ASP.NET Core (`Forms:SubmitsPerHour`, por usuário logado ou por IP) e campo-isca no envio. `Forms:AllowPublic=false` desliga todos |
 | Respondente identificado | 🟡 | Com login, o registro guarda quem respondeu (`CreatedBy`). Departamento não é gravado à parte |
 | Resumo | ✅ | Abriram × enviaram, taxa de conclusão, "onde as pessoas param" (chegou a cada pergunta) e gráfico por pergunta de seleção/sim-não/escala; tabela com busca e exportação dos mini apps. Contadores na tabela `FormCounters` |

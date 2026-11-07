@@ -77,17 +77,18 @@ melhorias automaticamente.
 
 ## Regras e decisões
 
-- Mantém o limite de encadeamento (5 níveis) e acrescenta limite de passos por execução (padrão 500) e de itens em
-  "para cada" (padrão 1.000).
+- Mantém o limite de encadeamento (5 níveis) e acrescenta limite de passos executados por execução (500, cada item do
+  "para cada" conta os passos de dentro; `FlowRules.MaxStepsPerRun`) e de itens em "para cada" (1.000).
 - Workflow agendado/webhook roda com privilégio de sistema do **projeto** (como hoje); segredos são do workspace e
   só builders do workspace os veem pelo nome, nunca o valor.
-- Rascunho roda contra dados de rascunho; "Testar" nunca chama ações externas sem confirmação (e-mail só loga no rascunho).
+- Rascunho roda contra dados de rascunho. Hoje "Testar" executa as ações de verdade, inclusive `callApi` (ver 🟡 na
+  tabela); a confirmação antes de chamar API externa no teste está pendente. E-mail no MVP só loga (`LogEmailSender`).
 - O histórico guarda saída truncada (ex.: 16 KB por passo) para não virar banco de payloads.
 
 ## Testes (por jornada)
 
-- Back (Domain com fakes): enfileirar e executar; saída de um passo disponível no seguinte; se/senão e E/OU; para cada
-  com limite; retry com backoff até sucesso e até desistir (alerta enviado); timeout; reexecutar do passo que falhou;
+- Back (Domain com fakes): enfileirar e executar; saída de um passo disponível no seguinte; se/senão; para cada
+  com limite; limite de passos por execução; retry com backoff até sucesso e até desistir (alerta enviado); timeout; reexecutar do passo que falhou;
   segredo resolvido e mascarado no histórico; webhook do workflow com payload.
 - Front: funções puras do editor (inserir/mover passos aninhados, validar referências `{{steps.x}}`).
 
@@ -98,6 +99,6 @@ melhorias automaticamente.
 
 ## Perguntas em aberto
 
-- Qual fila/worker o ambiente corporativo oferece (Service Bus, RabbitMQ, Hangfire)? Define o adaptador de `IRunQueue`.
+- Qual fila/worker o ambiente corporativo oferece (Service Bus, RabbitMQ, Hangfire)? Define o adaptador de `IRunStore` (hoje a fila são as execuções `queued` no banco).
 - Política de egress: quais domínios `callApi` pode chamar (lista permitida por workspace?).
 - Onde ficam os segredos no corporativo (Key Vault, CyberArk)?
