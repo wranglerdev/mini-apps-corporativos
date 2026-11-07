@@ -112,7 +112,7 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 - Agendador: horário do servidor; roda em processo na API (uma instância). Primeira execução só na próxima ocorrência após publicar; execuções perdidas com o servidor parado viram uma só. Agendado não percorre registros (não há "para cada").
 - Importação CSV não dispara workflows (webhook dispara).
 - Visibilidade condicional é só apresentação (avaliada no navegador): quem precisa de dado protegido usa permissões
-  de tabela/campo, que o servidor aplica. Condições têm uma regra só (sem E/OU); para combinar, aninhe containers.
+  de tabela/campo, que o servidor aplica. Condições aceitam várias regras com E ou OU (um nível; para misturar os dois, aninhe containers).
 - A busca procura no valor gravado: campo de relação é encontrado pelo id, não pelo rótulo exibido; campo oculto
   nunca entra na busca de quem não o vê. Rótulos de relação (`/labels`) ainda carregam a tabela relacionada inteira
   (tabelas de apoio costumam ser pequenas). Exportações levam a tabela inteira, sem o filtro da busca.
@@ -134,3 +134,4 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-07 | Formulários (MVP do PRD-FORMS): editor de perguntas e lógica, respondente `/f/{slug}`, link público com limite, resumo |
 | 2026-11-07 | Workflows (MVP do PRD-WORKFLOWS): projeto próprio, passos aninhados, fila + worker, histórico em waterfall, tentativas, tempo limite, segredos, webhook e cron |
 | 2026-11-07 | Revisão dos PRDs: limite de 500 passos por execução de workflow; redirecionamento do formulário validado também no servidor |
+| 2026-11-07 | Condições com várias regras (E/OU) na visibilidade, nas automações e no "se" dos workflows |

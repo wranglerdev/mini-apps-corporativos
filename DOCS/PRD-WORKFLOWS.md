@@ -53,7 +53,7 @@ melhorias automaticamente.
 | Gatilhos | ✅ | Manual ("Executar agora"/"Testar"), agendado (hora/dia/semana ou **cron** de 5 campos) e **webhook** `POST /api/hooks/wf/{appId}` com `X-Webhook-Key` (corpo JSON vira `{{trigger.body.*}}`). Gatilhos de registro ficam para quando o projeto tiver tabelas próprias |
 | Passos | ✅ | Chamar API (com **cabeçalhos**), Enviar e-mail, **Se/senão**, **Para cada** (lista JSON, até 1.000 itens), **Esperar** (até 1 h), **Transformar**. Criar/atualizar registro e aprovação ficam nas automações de mini app |
 | Saída entre passos | ✅ | Cada passo tem id; `{{steps.<id>.campo}}` (JSON achatado); `callApi` expõe `status` e `body`. Renomear o id atualiza as referências |
-| Condições | 🟡 | Uma regra por "se" (mesmo `ConditionDef`). Grupos E/OU ficam para depois; hoje, aninhe "se" |
+| Condições | ✅ | Várias regras por "se", juntadas por **E** (todas) ou **OU** (qualquer uma), mesmo `ConditionDef` das automações e da visibilidade ([ADR 0015](ADR/0015-condicoes-com-varias-regras-e-ou.md)). Um nível: para misturar E com OU, aninhe "se" |
 | Execução assíncrona | ✅ | Porta `IRunStore` (fila = execuções `queued` no banco) + `FlowWorkerHostedService` (1 s, uma execução por vez). Automações de mini app/formulário continuam síncronas (compartilham o código das ações) |
 | Histórico | ✅ | `WorkflowRuns` + `RunSteps` (passos, tentativas, esperas, itens; entrada/saída até 16 KB). Retenção de 30 dias. Tela em waterfall |
 | Retry | ✅ | Por passo (0–5, padrão 3 em API e 2 em e-mail), espera 1 s, 2 s, 4 s…; API com status ≥ 400 conta como falha |
@@ -87,7 +87,7 @@ melhorias automaticamente.
 
 ## Testes (por jornada)
 
-- Back (Domain com fakes): enfileirar e executar; saída de um passo disponível no seguinte; se/senão; para cada
+- Back (Domain com fakes): enfileirar e executar; saída de um passo disponível no seguinte; se/senão e E/OU; para cada
   com limite; limite de passos por execução; retry com backoff até sucesso e até desistir (alerta enviado); timeout; reexecutar do passo que falhou;
   segredo resolvido e mascarado no histórico; webhook do workflow com payload.
 - Front: funções puras do editor (inserir/mover passos aninhados, validar referências `{{steps.x}}`).

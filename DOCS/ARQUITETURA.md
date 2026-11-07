@@ -50,6 +50,9 @@ Tabelas SQLite: `Workspaces`, `Apps`, `AppVersions`, `Records`, `Approvals`, `Au
 - **Visibilidade condicional**: `ComponentDef.VisibleWhen` (mesmo formato de `ConditionDef`) é avaliado no navegador por
   `runtime/visibility.ts` (espelho de `Conditions.Evaluate` do backend) com as variáveis do `RunContext`: inputs da página +
   `user.role/department/email/canManage`. Componente oculto não é renderizado; filhos de container oculto também não.
+- **Condições (E/OU)**: `ConditionDef` = 1ª regra nos próprios campos + `More` (demais regras) + `Join` (`and`/`or`).
+  Definições antigas (uma regra) continuam válidas. Editadas pelo `app-condition-editor` (`builder/condition-ops.ts`)
+  na visibilidade, nas automações e no "se" dos workflows.
 - **Encadeamento de workflows**: `WorkflowEngine` carrega `depth`; `createRecord`/`updateRecord` chamam `RunTriggersAsync`
   (registro criado/atualizado) e `runWorkflow` chama `RunAsync` com `depth + 1`; acima de `MaxChainDepth` (5) a cadeia para.
   `ApprovalService.DecideAsync` dispara "registro atualizado" após gravar o status.
