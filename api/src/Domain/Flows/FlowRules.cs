@@ -73,6 +73,8 @@ public static partial class FlowRules
     public const int MaxWaitSeconds = 3600;
     public const int MaxRetries = 5;
     public const int DefaultTimeoutSeconds = 30;
+    /// <summary>Passos executados por execução (cada item do "para cada" conta os passos de dentro).</summary>
+    public const int MaxStepsPerRun = 500;
 
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex StepId();

@@ -112,6 +112,8 @@ public static class FormFlow
         if (form.Questions.Count == 0) errors.Add("O formulário precisa de ao menos uma pergunta.");
         if (form.Questions.GroupBy(q => q.Id).Any(g => g.Count() > 1)) errors.Add("Perguntas com id repetido.");
         if (form.Questions.GroupBy(q => q.FieldId).Any(g => g.Count() > 1)) errors.Add("Duas perguntas gravam no mesmo campo.");
+        if (!string.IsNullOrWhiteSpace(form.RedirectUrl) && !IsWebUrl(form.RedirectUrl))
+            errors.Add("O redirecionamento da tela final precisa ser um endereço http ou https.");
 
         for (var i = 0; i < form.Questions.Count; i++)
         {
@@ -132,4 +134,8 @@ public static class FormFlow
         }
         return errors;
     }
+
+    /// <summary>Mesma regra do respondente (form-runner.ts): só http(s), nada de javascript:, data: etc.</summary>
+    private static bool IsWebUrl(string url) =>
+        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }

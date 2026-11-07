@@ -124,6 +124,26 @@ public class FlowTests
     }
 
     [Fact]
+    public async Task Execucao_para_no_limite_de_passos()
+    {
+        var w = new World();
+        var items = "[" + string.Join(",", Enumerable.Range(1, FlowRules.MaxStepsPerRun)) + "]";
+        var app = await CreateFlowAsync(w, null,
+            new ActionDef
+            {
+                Id = "cada", Type = Actions.ForEach, Params = { ["list"] = items },
+                Steps = [new ActionDef { Id = "dobro", Type = Actions.Transform, Values = { ["n"] = "{{item}}" } }]
+            },
+            Email("gestor", "gestor-ti@corp.local", "Resumo"));
+
+        var run = await RunAsync(w, app); // 1 "para cada" + 500 passos dentro já passa de 500
+
+        Assert.Equal(RunStatus.Failed, run.Status);
+        Assert.Contains($"limite de {FlowRules.MaxStepsPerRun} passos", run.Error);
+        Assert.DoesNotContain(w.Email.Sent, e => e.Subject == "Resumo");
+    }
+
+    [Fact]
     public async Task Passo_lento_passa_do_tempo_limite()
     {
         var w = new World();

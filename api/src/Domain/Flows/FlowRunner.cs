@@ -4,7 +4,7 @@ namespace Domain;
 
 /// <summary>
 /// Executa as execuções da fila (projetos de workflow), uma por vez, gravando cada passo no histórico:
-/// passos aninhados ("se", "para cada"), saída de cada passo em {{steps.&lt;id&gt;.*}}, segredos em {{secrets.*}}
+/// passos aninhados ("se", "para cada"), limite de passos por execução, saída de cada passo em {{steps.&lt;id&gt;.*}}, segredos em {{secrets.*}}
 /// (mascarados no histórico), tentativas com espera crescente (1 s, 2 s, 4 s...), tempo limite por passo e por execução,
 /// reexecução a partir de um passo e alerta por e-mail quando falha em produção.
 /// Quem chama: Api/FlowWorkerHostedService (a cada segundo). As ações em si são as do WorkflowEngine.
@@ -29,6 +29,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
         public DateTime Deadline { get; } = deadline;
         public CancellationToken Ct { get; } = ct;
         public int Order { get; set; }
+        public int Executed { get; set; }
         public string? SkipUntil { get; set; }
         public Dictionary<string, RunStep> Reused { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
@@ -117,6 +118,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
     {
         if (DateTime.UtcNow > x.Deadline) throw new StepFailed($"Execução passou do tempo limite de {RunTimeout.TotalMinutes:0} min.");
         x.Ct.ThrowIfCancellationRequested();
+        if (++x.Executed > FlowRules.MaxStepsPerRun) throw new StepFailed($"Execução passou do limite de {FlowRules.MaxStepsPerRun} passos.");
         var span = await BeginAsync(x, parent, depth, step.Id, Label(step), step.Type);
         try
         {

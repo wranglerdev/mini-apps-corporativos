@@ -192,6 +192,13 @@ public class FormTests
         draft.Form.Questions[3].Jumps = [];
         draft.Form.Questions[2].Kind = QuestionKinds.Email; // campo Nota é número
         await Assert.ThrowsAsync<ValidationException>(() => w.AppService.UpdateAsync(app.Id, new AppChanges(app.Name, null, draft, false, false, null)));
+
+        draft.Form.Questions[2].Kind = app.Draft.Form!.Questions[2].Kind;
+        draft.Form.RedirectUrl = "javascript:alert(1)"; // tela final só redireciona para http(s)
+        var redirect = await Assert.ThrowsAsync<ValidationException>(() => w.AppService.UpdateAsync(app.Id, new AppChanges(app.Name, null, draft, false, false, null)));
+        Assert.Contains("http", redirect.Message);
+        draft.Form.RedirectUrl = "https://intranet.corp.local/obrigado";
+        await w.AppService.UpdateAsync(app.Id, new AppChanges(app.Name, null, draft, false, false, null));
     }
 
     [Fact]
