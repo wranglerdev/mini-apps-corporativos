@@ -154,4 +154,4 @@ cd api && dotnet test    # testes do back
 cd web && npm test       # testes do front (ChromeHeadless)
 ```
 
-Mais detalhes: [PRD](DOCS/PRD.md), [formulários](DOCS/PRD-FORMS.md), [workflows](DOCS/PRD-WORKFLOWS.md), [arquitetura](DOCS/ARQUITETURA.md), [dependências](DOCS/DEPENDENCIAS.md), [troca de adaptadores](DOCS/TROCA-DE-ADAPTADORES.md), [testes](DOCS/TDD.md) e [decisões (ADRs)](DOCS/ADR/README.md).
+Mais detalhes: [PRD](DOCS/PRD.md), [formulários](DOCS/PRD-FORMS.md), [workflows](DOCS/PRD-WORKFLOWS.md), [arquitetura](DOCS/ARQUITETURA.md), [referência técnica: banco, rotas e volume](DOCS/REFERENCIA-TECNICA.md), [dependências](DOCS/DEPENDENCIAS.md), [troca de adaptadores](DOCS/TROCA-DE-ADAPTADORES.md), [testes](DOCS/TDD.md) e [decisões (ADRs)](DOCS/ADR/README.md).

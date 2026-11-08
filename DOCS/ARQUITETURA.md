@@ -12,6 +12,8 @@ web/  (Angular 20, standalone, signals, zoneless, control flow @if/@for)
 
 Regra de dependência: `Api → Domain ← Infra`. **Domain não referencia nada** (nem EF, nem ASP.NET).
 
+Diagrama do banco, DDL, rotas do front e da API e volume de requisições: [REFERENCIA-TECNICA.md](REFERENCIA-TECNICA.md).
+
 ## Modelo de dados
 
 Um app é **um documento JSON** (`AppDefinition`: páginas, tabelas, workflows). Isso simplifica tudo:
