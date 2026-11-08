@@ -90,11 +90,12 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 | Biblioteca compartilhável | ✅ | Qualquer app pode ser marcado "template" e aparece para builders de todas as unidades |
 | Duplicar app (de outra unidade) | ✅ | Clona definição (sem dados) de app próprio, template ou da Biblioteca |
 | Versionamento com rollback | ✅ | Cada publicação gera versão imutável; rollback publica nova versão com o conteúdo antigo. Renomear campo migra os dados (rascunho ao salvar, produção ao publicar/rollback) |
-| Modo builder × modo usuário | ✅ | `/builder/*` (protegido por papel) × `/run/{slug}` (sem nada do editor). Aba do editor na URL (`/builder/{id}?aba=execucoes`): reload e link abrem na mesma aba |
+| Rascunho salvo sozinho | ✅ | O editor salva 2,5 s depois da última edição (selo "Não salvo" / "Salvando…" / "Erro ao salvar"); "Publicar" desliga quando nada mudou desde a última versão ([ADR 0021](ADR/0021-autosave-publicar-com-mudanca-e-menu-dos-cards.md)) |
+| Modo builder × modo usuário | ✅ | `/builder/*` (protegido por papel) × `/run/{slug}` (tela inteira do usuário final: sem barra lateral, sem links da plataforma nem versão). Aba do editor na URL (`/builder/{id}?aba=execucoes`): reload e link abrem na mesma aba |
 | Biblioteca | ✅ | `/biblioteca` (antigo Catálogo; `/catalog` redireciona): **templates** (builders, "Usar template") e apps publicados liberados para o departamento ([ADR 0020](ADR/0020-catalogo-vira-biblioteca.md)) |
 | Formulários | ✅ | Ver [PRD-FORMS.md](PRD-FORMS.md): perguntas com lógica de pulo, `/f/{slug}`, link público opcional, resumo e respostas |
 | Workflows | ✅ | Ver [PRD-WORKFLOWS.md](PRD-WORKFLOWS.md): projeto próprio, passos aninhados, fila com histórico em waterfall, tentativas, segredos, webhook e cron |
-| Início | ✅ | `/` (estilo Figma): criar Mini app, Formulário ou Workflow (abre o editor "sem título"), mais o card **Catálogo** "Em breve" (próxima feature: dados enviados entre os apps num só lugar); recentes em grade com miniatura e filtro por tipo (builder) ou apps para você (usuário). O que cada papel pode fazer fica na barra lateral, com contador de aprovações |
+| Início | ✅ | `/` (estilo Figma): criar Mini app, Formulário ou Workflow (abre o editor "sem título"), menu em cada card (botão direito ou ⋯: editar, abrir, duplicar, excluir), mais o card **Catálogo** "Em breve" (próxima feature: dados enviados entre os apps num só lugar); recentes em grade com miniatura e filtro por tipo (builder) ou apps para você (usuário). O que cada papel pode fazer fica na barra lateral, com contador de aprovações |
 
 ## Fora do MVP (próximos passos)
 
@@ -139,6 +140,7 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-07 | Condições com várias regras (E/OU) na visibilidade, nas automações e no "se" dos workflows |
 | 2026-11-08 | Aba ativa do editor persistida na URL (`?aba=`) para reload e compartilhamento |
 | 2026-11-08 | Variáveis tipadas nos workflows (padrão, apelido), Transformar por operações, autocomplete `{{` e arrastar variáveis |
+| 2026-11-08 | Rascunho salvo sozinho, Publicar desliga sem mudança, menu (⋯/botão direito) nos cards da Início |
 | 2026-11-08 | Catálogo vira Biblioteca (`/biblioteca`), com os templates; "Catálogo" fica para a próxima feature |
 | 2026-11-08 | Navegação e workflows entre projetos: Iniciar workflow com entradas tipadas, Abrir projeto ou link com pré-preenchimento, redirecionamento condicional do formulário |
 | 2026-11-08 | Variáveis também nas automações de mini app/formulário, nos textos do mini app (`{{user.name}}`, inputs) e nas perguntas/tela final do formulário (respostas anteriores) |

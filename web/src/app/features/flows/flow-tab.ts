@@ -44,9 +44,9 @@ const TEST_MAX_POLLS = 120;
       </aside>
 
       <section class="canvas canvas--dots" aria-label="Passos do workflow">
-        <div class="canvas__bar">
+        <div class="canvas__bar canvas__bar--test">
           <button uiButton variant="primary" [disabled]="testing()" (click)="test()"><ui-icon name="play" /> {{ testing() ? 'Testando…' : 'Testar no rascunho' }}</button>
-          @if (testText(); as t) { <span class="muted small" style="padding-right: 8px">{{ t }}</span> }
+          @if (testText(); as t) { <span class="test-status" [attr.data-tone]="testTone()" [title]="t">{{ t }}</span> }
         </div>
 
         <div class="flow flow--tree">
@@ -278,6 +278,12 @@ export class FlowTab {
   protected readonly triggerIcon = computed(() => ({ manual: 'manual', webhook: 'webhook', schedule: 'schedule', call: 'external' })[this.flow().trigger.type as string] ?? 'manual');
   protected readonly webhookUrl = computed(() => this.api.flowWebhookUrl(this.appId()));
   private readonly results = computed(() => resultsByStep(this.testRun()?.steps ?? []));
+  /** Cor do resultado do teste (sem teste ainda: só a dica, sem pílula). */
+  protected readonly testTone = computed(() => {
+    if (this.testError()) return 'bad';
+    const run = this.testRun()?.run;
+    return run ? (RUN_STATUS[run.status]?.tone ?? 'neutral') : null;
+  });
   protected readonly testText = computed(() => {
     if (this.testError()) return this.testError();
     const run = this.testRun()?.run;

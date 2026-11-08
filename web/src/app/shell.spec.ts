@@ -1,5 +1,5 @@
 import { CurrentUser } from './core/models';
-import { isToolRoute, navItems, nextTheme } from './shell';
+import { isBareRoute, isToolRoute, navItems, nextTheme } from './shell';
 
 // Moldura: o que cada papel enxerga na barra lateral, quando ela recolhe e o ciclo de tema.
 describe('Moldura', () => {
@@ -26,6 +26,14 @@ describe('Moldura', () => {
     expect(isToolRoute('/builder')).toBeFalse();
     expect(isToolRoute('/builder?x=1')).toBeFalse();
     expect(isToolRoute('/run/abc')).toBeFalse();
+  });
+
+  it('usuário final (formulário e app publicado) não vê a barra; preview do rascunho vê', () => {
+    expect(isBareRoute('/f/abc')).toBeTrue();
+    expect(isBareRoute('/f-preview/abc')).toBeTrue();
+    expect(isBareRoute('/run/abc?page=p1')).toBeTrue();
+    expect(isBareRoute('/preview/abc')).toBeFalse();
+    expect(isBareRoute('/runs')).toBeFalse();
   });
 
   it('tema alterna sistema → claro → escuro → sistema', () => {

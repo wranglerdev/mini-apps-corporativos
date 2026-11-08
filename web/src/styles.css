@@ -196,6 +196,17 @@ a.index__name:hover { color: var(--pen); }
 .project-card__body { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 12px; border-top: 1px solid var(--rule-soft); }
 .project-card__name { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-card__meta { font-size: var(--fs-xs); color: var(--ink-soft); }
+/* Botão ⋯ do card (abre o mesmo menu do botão direito): aparece no hover/foco; sempre visível em telas de toque */
+.project-card-wrap { position: relative; min-width: 0; }
+.project-card-wrap > .project-card { height: 100%; }
+.project-card__more {
+  position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--rule); border-radius: var(--r-control); background: var(--sheet); color: var(--ink-soft);
+  cursor: pointer; opacity: 0; transition: opacity 0.12s;
+}
+.project-card-wrap:hover .project-card__more, .project-card__more:focus-visible, .project-card__more.open { opacity: 1; }
+.project-card__more:hover { color: var(--ink); border-color: var(--ink-faint); }
+@media (hover: none) { .project-card__more { opacity: 1; } }
 
 /* Miniatura: esboço da 1ª página na grade de 12 colunas */
 .thumb { height: 148px; padding: 16px 18px 0; background: var(--canvas); overflow: hidden; }
@@ -395,6 +406,9 @@ button.palette-item { width: 100%; border: 0; background: none; color: var(--ink
 .shell--bare { grid-template-columns: minmax(0, 1fr); }
 .shell--bare .rail { display: none; }
 .shell--bare .content { padding: 0; }
+/* Mini app publicado: tela inteira do usuário final, com o mesmo respiro da moldura */
+.shell--bare app-runner > app-page > .page { box-sizing: border-box; padding: 32px 40px 64px; }
+@media (max-width: 860px) { .shell--bare app-runner > app-page > .page { padding: 20px 16px 48px; } }
 app-form-runner.runner { display: flex; flex-direction: column; min-height: 100vh; background: var(--sheet); }
 .runner__progress { position: sticky; top: 0; z-index: 2; height: 4px; background: var(--rule-soft); }
 .runner__progress > span { display: block; height: 100%; background: var(--pen); transition: width 0.25s ease; }
@@ -486,6 +500,13 @@ app-form-runner > app-page { display: flex; flex: 1; }
 .flow__add--inner { width: 200px; margin-top: 8px; }
 .flow__add--inner select { font-size: var(--fs-sm); min-height: 30px; }
 .canvas__bar .ui-btn { min-height: 30px; }
+/* Barra "Testar no rascunho" do workflow: botão + dica ou resultado (pílula com a cor do status) */
+.canvas__bar--test { display: flex; align-items: center; gap: 12px; max-width: min(620px, 100%); padding: 4px 14px 4px 4px; }
+.test-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--ink-soft); }
+.test-status[data-tone] { padding: 0 10px; border-radius: 99px; font-weight: 500; line-height: 22px; background: var(--rule-soft); }
+.test-status[data-tone='ok'] { background: var(--ok-soft); color: var(--ok); }
+.test-status[data-tone='bad'] { background: var(--bad-soft); color: var(--bad); }
+.test-status[data-tone='wait'] { background: var(--wait-soft); color: var(--wait); }
 
 .run-row { width: 100%; border: 0; border-bottom: 1px solid var(--rule-soft); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .run-row:hover { background: var(--hover); }

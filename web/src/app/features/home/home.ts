@@ -1,4 +1,5 @@
 import { AppSummary, ComponentType } from '../../core/models';
+import { MenuItem } from '../../ui/ui';
 
 // Regras puras da tela inicial (testadas em home.spec.ts).
 
@@ -23,6 +24,16 @@ export const PROJECT_KINDS: ProjectKindOption[] = [
 ];
 
 export const NEW_NAME: Record<ProjectKind, string> = { app: 'App sem título', form: 'Formulário sem título', workflow: 'Workflow sem título' };
+
+/** Itens do menu do card (botão ⋯ ou botão direito). "Abrir" só para mini app/formulário publicado; excluir pede confirmação no próprio menu. */
+export function projectMenu(p: Pick<AppSummary, 'kind' | 'publishedVersion'>, confirmDelete: boolean): MenuItem[] {
+  return [
+    { value: 'edit', label: 'Editar', icon: 'edit' },
+    ...(p.publishedVersion && p.kind !== 'workflow' ? [{ value: 'open', label: 'Abrir versão publicada', icon: 'external' }] : []),
+    { value: 'duplicate', label: 'Duplicar', icon: 'copy' },
+    { value: 'delete', label: confirmDelete ? 'Confirmar exclusão' : 'Excluir', icon: 'trash', danger: true },
+  ];
+}
 
 /** Tipo do projeto (vem do backend, derivado da definição). */
 export const kindOf = (a: Pick<AppSummary, 'kind'>): ProjectKind => a.kind ?? 'app';

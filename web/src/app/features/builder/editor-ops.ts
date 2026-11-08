@@ -22,6 +22,17 @@ export const EDITOR_TABS: Record<ProjectKind, { id: EditorTab; label: string }[]
   workflow: [{ id: 'workflow', label: 'Workflow' }, { id: 'execucoes', label: 'Execuções' }, { id: 'segredos', label: 'Segredos' }, { id: 'publicacao', label: 'Publicação' }],
 };
 
+/** Espera depois da última edição para salvar o rascunho sozinho. */
+export const AUTOSAVE_MS = 2500;
+
+/**
+ * Há o que publicar? Sem versão publicada ou com alterações não salvas, sim; senão, só se o rascunho salvo for diferente
+ * da versão em produção (as duas vêm do mesmo serializador do backend, então comparar o JSON basta).
+ */
+export function hasUnpublishedChanges(draft: AppDefinition, published: AppDefinition | null | undefined, dirty: boolean): boolean {
+  return dirty || !published || JSON.stringify(draft) !== JSON.stringify(published);
+}
+
 /** Aba pedida na URL se existir para o tipo; senão a primeira do tipo. */
 export function editorTab(kind: ProjectKind, requested: string | null | undefined): EditorTab {
   const tabs = EDITOR_TABS[kind] ?? EDITOR_TABS.app;

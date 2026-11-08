@@ -30,8 +30,8 @@ export function navItems(user: CurrentUser | null, pendingApprovals: number): Na
 /** No editor de um app a barra lateral recolhe para dar espaço ao canvas (estilo Figma). */
 export const isToolRoute = (url: string) => /^\/builder\/[^/?#]+/.test(url);
 
-/** Respondente de formulário: tela inteira, sem a barra lateral (pode ser link público). */
-export const isBareRoute = (url: string) => /^\/f(-preview)?\//.test(url);
+/** Usuário final (formulário respondido ou mini app publicado): tela inteira, sem a barra lateral. */
+export const isBareRoute = (url: string) => /^\/(f|f-preview|run)\//.test(url);
 
 export type Theme = 'system' | 'light' | 'dark';
 

@@ -28,3 +28,5 @@ ADR aceito não é reescrito; uma decisão nova o substitui (`Substituído por N
 | [0018](0018-variaveis-em-automacoes-textos-e-formularios.md) | Variáveis nas automações, nos textos do mini app e nos formulários | feature | Aceito | 2026-11-08 |
 | [0019](0019-navegacao-e-workflows-entre-projetos.md) | Navegação e workflows entre projetos (mini app, formulário e workflow) | feature | Aceito | 2026-11-08 |
 | [0020](0020-catalogo-vira-biblioteca.md) | "Catálogo" vira "Biblioteca", com os templates | ui | Aceito | 2026-11-08 |
+| [0021](0021-autosave-publicar-com-mudanca-e-menu-dos-cards.md) | Salvamento automático, publicar só com mudança e menu nos cards | ui | Aceito | 2026-11-08 |
+| [0022](0022-mini-app-publicado-em-tela-limpa.md) | Mini app publicado em tela limpa, para o usuário final | ui | Aceito | 2026-11-08 |

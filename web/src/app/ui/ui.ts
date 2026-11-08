@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, ElementRef, TemplateRef, computed, contentChild, input, model, output, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, TemplateRef, afterRenderEffect, computed, contentChild, inject, input, model, output, signal, viewChild } from '@angular/core';
 import { CompleteMode, Suggestion, applyCompletion, completionAt, filterSuggestions } from './completion';
+import { Box, placeBelow } from './placement';
 
 // ============================================================================================
 // DESIGN SYSTEM (camada de troca). Features usam SOMENTE estes componentes + classes de layout
@@ -361,6 +362,10 @@ const ICONS: Record<string, string> = {
   wait: 'M4 2.5h8M4 13.5h8M5 2.5c0 3 6 3 6 5.5S5 10.5 5 13.5M11 2.5c0 3-6 3-6 5.5s6 2.5 6 5.5',
   transform: 'M3 5h7M3 11h10M10 3l2 2-2 2M6 9l-2 2 2 2',
   key: 'M10 2.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM7.5 8.5 2.5 13.5M4.5 11.5l1.5 1.5',
+  more: 'M3 7.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2zM8 7.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2zM13 7.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2z',
+  edit: 'M10.5 2.5l3 3-8 8h-3v-3zM9 4l3 3',
+  copy: 'M5.5 5.5h8v8h-8zM10.5 5.5v-3h-8v8h3',
+  trash: 'M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.5v5M9.2 6.5v5',
 };
 
 /** Ícone por nome (ver ICONS). Herda a cor do texto. */
@@ -466,6 +471,81 @@ export class UiScale {
 }
 
 /** Importe `UI` em `imports` dos componentes de feature. */
+export interface MenuItem {
+  value: string;
+  label: string;
+  icon?: string;
+  danger?: boolean;
+}
+
+/**
+ * Menu flutuante (botão "⋯" ou botão direito). Aberto enquanto `anchor` não for nulo; quem usa decide o que cada item faz
+ * e fecha (ou mantém aberto, ex.: confirmação). Fica inteiro na tela (placeBelow); Esc, clique fora ou rolar fecha;
+ * setas andam entre os itens.
+ */
+@Component({
+  selector: 'ui-menu',
+  imports: [UiIcon],
+  template: `
+    @if (anchor()) {
+      <div #menu class="ui-menu" role="menu" [attr.aria-label]="label()" (keydown)="onKey($event)">
+        @for (it of items(); track it.value) {
+          <button type="button" role="menuitem" class="ui-menu__item" [class.ui-menu__item--danger]="it.danger" (click)="select.emit(it.value)">
+            @if (it.icon) { <ui-icon [name]="it.icon" /> }<span>{{ it.label }}</span>
+          </button>
+        }
+      </div>
+    }
+  `,
+})
+export class UiMenu {
+  readonly anchor = input<Box | null>(null);
+  readonly items = input<MenuItem[]>([]);
+  readonly label = input('Ações');
+  readonly select = output<string>();
+  readonly close = output<void>();
+  private readonly menu = viewChild<ElementRef<HTMLElement>>('menu');
+  private placed: Box | null = null;
+
+  constructor() {
+    afterRenderEffect({
+      write: () => {
+        const anchor = this.anchor();
+        const el = this.menu()?.nativeElement;
+        if (!anchor || !el) return;
+        const p = placeBelow(anchor, { width: el.offsetWidth, height: el.offsetHeight }, { width: window.innerWidth, height: window.innerHeight });
+        el.style.left = `${p.x}px`;
+        el.style.top = `${p.y}px`;
+        // Foco no 1º item só quando abre (não a cada troca de itens, ex.: "Confirmar exclusão").
+        if (this.placed !== anchor) el.querySelector<HTMLElement>('[role=menuitem]')?.focus();
+        this.placed = anchor;
+      },
+    });
+    const outside = (e: Event) => {
+      if (this.anchor() && !this.menu()?.nativeElement.contains(e.target as Node)) this.close.emit();
+    };
+    const scroll = () => this.anchor() && this.close.emit();
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('scroll', scroll, true);
+    inject(DestroyRef).onDestroy(() => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('scroll', scroll, true);
+    });
+  }
+
+  protected onKey(e: KeyboardEvent) {
+    const items = [...(this.menu()?.nativeElement.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      e.preventDefault();
+      this.close.emit();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+    }
+  }
+}
+
 export const UI = [
-  UiButton, UiInput, UiSelect, UiCheckbox, UiCard, UiTable, UiBarChart, UiNotice, UiStamp, UiSegmented, UiIcon, UiAnswer, UiChoices, UiScale,
+  UiButton, UiInput, UiSelect, UiCheckbox, UiCard, UiTable, UiBarChart, UiNotice, UiStamp, UiSegmented, UiIcon, UiAnswer, UiChoices, UiScale, UiMenu,
 ] as const;

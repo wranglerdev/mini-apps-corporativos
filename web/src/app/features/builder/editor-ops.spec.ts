@@ -1,7 +1,7 @@
 import { AppDefinition, PageDef } from '../../core/models';
 import {
   ACTION_TYPES, COMPONENT_TYPES, PALETTE_GROUPS, actionSummary, conditionSummary, triggerSummary,
-  MAX_DEPTH, addTable, editorTab, duplicateComponent, nudgeComponent, outline, pathTo, scheduleLabel, findComponent, flatten, generatePageForTable, insertComponent, moveComponent, newComponent,
+  MAX_DEPTH, addTable, editorTab, hasUnpublishedChanges, duplicateComponent, nudgeComponent, outline, pathTo, scheduleLabel, findComponent, flatten, generatePageForTable, insertComponent, moveComponent, newComponent,
   removeComponent, removeTable,
 } from './editor-ops';
 
@@ -180,5 +180,15 @@ describe('editor-ops', () => {
     expect(editorTab('app', undefined)).toBe('design');
     expect(editorTab('form', 'design')).toBe('perguntas');
     expect(editorTab('workflow', 'xyz')).toBe('workflow');
+  });
+
+  it('publicar só quando há mudança: sem versão, com edição não salva ou rascunho diferente da produção', () => {
+    const published = blank();
+    expect(hasUnpublishedChanges(blank(), published, false)).toBeFalse();
+    expect(hasUnpublishedChanges(blank(), published, true)).toBeTrue();
+    expect(hasUnpublishedChanges(blank(), null, false)).toBeTrue();
+    const changed = blank();
+    changed.pages[0].name = 'Outra';
+    expect(hasUnpublishedChanges(changed, published, false)).toBeTrue();
   });
 });

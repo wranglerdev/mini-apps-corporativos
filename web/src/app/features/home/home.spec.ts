@@ -1,5 +1,5 @@
 import { AppSummary } from '../../core/models';
-import { PROJECT_KINDS, SKETCH_MAX, recentProjects, runLink, sketchBlocks } from './home';
+import { PROJECT_KINDS, SKETCH_MAX, projectMenu, recentProjects, runLink, sketchBlocks } from './home';
 
 // Início: o que dá para criar, projetos recentes e miniaturas.
 describe('Início', () => {
@@ -33,5 +33,13 @@ describe('Início', () => {
     expect(sketchBlocks(many).length).toBe(SKETCH_MAX);
     expect(sketchBlocks([{ type: 'chart', span: 30 }, { type: 'button', span: 0 }]).map((b) => b.span)).toEqual([12, 12]);
     expect(sketchBlocks([{ type: 'button', span: 3 }])[0]).toEqual({ type: 'button', span: 3 });
+  });
+
+  it('menu do card: abrir só publicado e fora de workflow; excluir confirma no próprio menu', () => {
+    const values = (kind: 'app' | 'form' | 'workflow', v: number | null, c = false) => projectMenu({ kind, publishedVersion: v }, c).map((i) => i.value);
+    expect(values('app', 2)).toEqual(['edit', 'open', 'duplicate', 'delete']);
+    expect(values('app', null)).toEqual(['edit', 'duplicate', 'delete']);
+    expect(values('workflow', 1)).toEqual(['edit', 'duplicate', 'delete']);
+    expect(projectMenu({ kind: 'form', publishedVersion: 1 }, true).at(-1)!.label).toBe('Confirmar exclusão');
   });
 });

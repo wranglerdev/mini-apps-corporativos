@@ -5,7 +5,8 @@ import { AuthService, canBuild } from '../../core/auth/auth';
 import { AppSummary, Workspace } from '../../core/models';
 import { LAYOUT, Notice } from '../../layout/layout';
 import { UI } from '../../ui/ui';
-import { NEW_NAME, PROJECT_KINDS, ProjectKind, ProjectKindOption, kindOf, recentProjects, runLink, sketchBlocks } from './home';
+import { Box } from '../../ui/placement';
+import { NEW_NAME, PROJECT_KINDS, ProjectKind, ProjectKindOption, kindOf, projectMenu, recentProjects, runLink, sketchBlocks } from './home';
 
 const KIND_LABEL: Record<ProjectKind, string> = { app: 'Mini app', form: 'Formulário', workflow: 'Workflow' };
 
@@ -53,7 +54,8 @@ const KIND_LABEL: Record<ProjectKind, string> = { app: 'Mini app', form: 'Formul
         </div>
         <div class="project-grid">
           @for (p of projects(); track p.id) {
-            <a class="project-card" [routerLink]="link(p)">
+            <div class="project-card-wrap">
+            <a class="project-card" [routerLink]="link(p)" (contextmenu)="openMenu($event, p)">
               <div class="thumb">
                 @let blocks = sketch(p);
                 @if (blocks.length) {
@@ -75,10 +77,19 @@ const KIND_LABEL: Record<ProjectKind, string> = { app: 'Mini app', form: 'Formul
                 </span>
               </div>
             </a>
+            @if (builder()) {
+              <button type="button" class="project-card__more" [class.open]="menu()?.project === p" aria-haspopup="menu"
+                [attr.aria-expanded]="menu()?.project === p" [attr.aria-label]="'Mais ações de ' + p.name" (click)="openMenu($event, p)">
+                <ui-icon name="more" />
+              </button>
+            }
+            </div>
           } @empty {
             <app-empty [title]="emptyTitle()" [text]="emptyText()" />
           }
         </div>
+        <ui-menu [anchor]="menu()?.anchor ?? null" [items]="menuItems()" [label]="'Ações de ' + (menu()?.project?.name ?? '')"
+          (select)="onMenu($event)" (close)="menu.set(null)" />
       </app-section>
     </app-page>
   `,
@@ -116,7 +127,13 @@ export class HomePage {
   protected readonly emptyText = computed(() =>
     !this.builder() ? 'Quando uma área publicar um app para o seu departamento, ele aparece aqui.'
       : this.filter() ? 'Nenhum projeto deste tipo ainda.'
-        : 'Crie o primeiro acima ou use um template em Meus apps.');
+        : 'Crie o primeiro acima ou use um template da Biblioteca.');
+  /** Card com o menu aberto (botão ⋯ ou botão direito) e se já pediu para excluir. */
+  protected readonly menu = signal<{ project: AppSummary; anchor: Box; confirm: boolean } | null>(null);
+  protected readonly menuItems = computed(() => {
+    const m = this.menu();
+    return m ? projectMenu(m.project, m.confirm) : [];
+  });
 
   constructor() {
     this.attempt(async () => {
@@ -142,6 +159,45 @@ export class HomePage {
   protected ago(iso: string) {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
     return days <= 0 ? 'hoje' : days === 1 ? 'ontem' : `há ${days} dias`;
+  }
+
+  /** Botão direito no card ou botão ⋯: abre o menu no ponto do clique ou embaixo do botão. Só para quem gerencia. */
+  protected openMenu(e: MouseEvent, p: AppSummary) {
+    if (!this.builder()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = e.type === 'contextmenu' ? { left: e.clientX, top: e.clientY, right: e.clientX, bottom: e.clientY }
+      : (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this.menu.set({ project: p, anchor: { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, confirm: false });
+  }
+
+  protected onMenu(action: string) {
+    const m = this.menu();
+    if (!m) return;
+    const p = m.project;
+    if (action === 'delete' && !m.confirm) return this.menu.set({ ...m, confirm: true });
+    this.menu.set(null);
+    switch (action) {
+      case 'edit': return this.router.navigate(['/builder', p.id]);
+      case 'open': return this.router.navigate(runLink(p));
+      case 'duplicate':
+        return this.attempt(async () => {
+          await this.api.duplicate(p.id, p.workspaceId);
+          await this.reload();
+          this.notice.set({ text: `Cópia de "${p.name}" criada.`, error: false });
+        });
+      case 'delete':
+        return this.attempt(async () => {
+          await this.api.deleteApp(p.id);
+          await this.reload();
+          this.notice.set({ text: `"${p.name}" excluído.`, error: false });
+        });
+    }
+    return;
+  }
+
+  private async reload() {
+    this.mine.set(await this.api.apps());
   }
 
   /** Como no Figma: cria "sem título" e abre o editor; o nome se ajusta lá. */

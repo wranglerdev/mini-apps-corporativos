@@ -11,7 +11,7 @@ import { RunContext } from './run-context';
 
 /**
  * Modo usuário. /run/:slug → versão publicada (produção). /preview/:id → rascunho (só builders).
- * Página atual via ?page=ID. Não exibe nada do editor.
+ * Página atual via ?page=ID. Publicado roda em tela inteira, sem barra lateral nem links da plataforma.
  */
 @Component({
   selector: 'app-runner',
@@ -20,19 +20,15 @@ import { RunContext } from './run-context';
   template: `
     @if (error()) {
       <app-page>
-        <app-page-header title="Não foi possível abrir o app" [crumb]="{ label: 'Biblioteca', link: '/biblioteca' }" />
+        <app-page-header title="Não foi possível abrir o app" [crumb]="crumb()" />
         <ui-notice [error]="true">{{ error() }}</ui-notice>
       </app-page>
     } @else if (ctx.definition(); as def) {
       <app-page width="wide" [notice]="ctx.notice()">
         <app-page-header [title]="title()" [crumb]="crumb()">
-          <ng-container ngProjectAs="[meta]">
-            @if (ctx.env() === 'draft') {
-              <ui-stamp tone="wait">Rascunho</ui-stamp>
-            } @else {
-              <span class="chip">versão {{ version() }}</span>
-            }
-          </ng-container>
+          @if (ctx.env() === 'draft') {
+            <ui-stamp meta tone="wait">Rascunho</ui-stamp>
+          }
           <button actions uiButton variant="ghost" class="no-print" (click)="print()">Imprimir página</button>
         </app-page-header>
 
@@ -64,11 +60,10 @@ export class AppRunner {
   private readonly api = inject(Api);
   private readonly route = inject(ActivatedRoute);
   protected readonly title = signal('');
-  protected readonly version = signal<number | null>(null);
   protected readonly error = signal('');
-  /** Produção volta à Biblioteca; rascunho volta ao editor. */
+  /** Rascunho volta ao editor. Publicado é a tela do usuário final: sem links da plataforma. */
   protected readonly crumb = computed(() =>
-    this.ctx.env() === 'draft' ? { label: 'Editor', link: ['/builder', this.ctx.appId()] } : { label: 'Biblioteca', link: '/biblioteca' });
+    this.ctx.env() === 'draft' && this.ctx.appId() ? { label: 'Editor', link: ['/builder', this.ctx.appId()] } : null);
 
   protected readonly currentPage = computed<PageDef | undefined>(() => {
     const pages = this.ctx.definition()?.pages ?? [];
@@ -88,7 +83,6 @@ export class AppRunner {
       if (slug) {
         const v = await this.api.run(slug);
         this.title.set(v.name);
-        this.version.set(v.version);
         this.ctx.appId.set(v.appId);
         this.ctx.env.set('prod');
         this.ctx.canManage.set(v.canManage);
