@@ -195,6 +195,27 @@ export interface ActionDef {
   else?: ActionDef[];
   retries?: number;
   timeoutSeconds?: number | null;
+  /** "transform": operações em ordem; cada uma grava numa variável do workflow. */
+  ops?: TransformOp[];
+}
+
+/** Variável do workflow (Domain/Flows/Variables.cs): usada como {{nome}}. */
+export type VariableType = 'text' | 'number' | 'boolean' | 'date' | 'list' | 'object';
+
+export interface VariableDef {
+  name: string;
+  type: VariableType;
+  /** Valor quando vazia (lista/objeto em JSON). Vazio = vazio do tipo. */
+  default?: string | null;
+  /** Apelido: caminho do contexto (ex.: steps.api1.body.cliente). O valor acompanha o caminho. */
+  from?: string | null;
+}
+
+export interface TransformOp {
+  target: string;
+  op: string;
+  input?: string | null;
+  arg?: string | null;
 }
 
 export interface WorkflowDef {
@@ -214,6 +235,8 @@ export interface WorkflowDef {
   };
   condition: ConditionDef | null;
   actions: ActionDef[];
+  /** Só em projetos de workflow. */
+  variables?: VariableDef[];
 }
 
 export interface DataRecord {

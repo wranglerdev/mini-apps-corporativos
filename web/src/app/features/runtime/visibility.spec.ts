@@ -1,5 +1,5 @@
 import { ConditionDef, ConditionJoin, CurrentUser } from '../../core/models';
-import { evaluate, visibilityVars } from './visibility';
+import { evaluate, render, visibilityVars } from './visibility';
 
 // Visibilidade condicional: mesmas regras das condições de workflow do backend.
 describe('visibilidade', () => {
@@ -51,5 +51,11 @@ describe('visibilidade', () => {
     it('definição antiga com uma regra continua valendo', () => {
       expect(evaluate({ field: 'tipo', op: 'eq', value: 'Compra' }, vars)).toBeTrue();
     });
+  });
+
+  it('textos do app trocam {{variável}} pelo valor (sem diferenciar maiúsculas; ausente vira vazio)', () => {
+    const vars = { titulo: 'Cadeira', 'user.name': 'Ana' };
+    expect(render('Olá {{ User.Name }}, pedido {{titulo}}{{naoExiste}}.', vars)).toBe('Olá Ana, pedido Cadeira.');
+    expect(render(null, vars)).toBe('');
   });
 });

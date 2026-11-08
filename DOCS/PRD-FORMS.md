@@ -59,6 +59,7 @@ catálogo, template e duplicar. A definição continua um `AppDefinition`:
 | Lógica de pulo | ✅ | `QuestionDef.Jumps: [{ op, value, goTo }]` sobre a resposta da própria pergunta; primeira que bater vence; só para frente (sem ciclos). Mesma regra em `FormFlow` (back) e `form-flow.ts` (front) |
 | Respostas | ✅ | Envio grava só as perguntas do caminho na tabela de respostas (produção) e dispara `recordCreated` |
 | Tela final | ✅ | Título, texto e redirecionamento opcional (só http/https, validado ao salvar no `FormFlow.Problems` e de novo no respondente) |
+| Respostas anteriores no texto | ✅ | Título, descrição e tela final citam respostas já dadas (`Certo, {{Nome}}!`). Cada pergunta só oferece as anteriores (autocomplete `{{` e painel "Respostas anteriores"); resposta pulada fica vazia. Automações do formulário têm variáveis e Transformar ([ADR 0018](ADR/0018-variaveis-em-automacoes-textos-e-formularios.md)) |
 | Link público | ✅ | Desligado por padrão (aba Compartilhar). Sem login grava como `anonimo`. Limite nativo do ASP.NET Core (`Forms:SubmitsPerHour`, por usuário logado ou por IP) e campo-isca no envio. `Forms:AllowPublic=false` desliga todos |
 | Respondente identificado | 🟡 | Com login, o registro guarda quem respondeu (`CreatedBy`). Departamento não é gravado à parte |
 | Resumo | ✅ | Abriram × enviaram, taxa de conclusão, "onde as pessoas param" (chegou a cada pergunta) e gráfico por pergunta de seleção/sim-não/escala; tabela com busca e exportação dos mini apps. Contadores na tabela `FormCounters` |

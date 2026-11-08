@@ -53,6 +53,15 @@ Tabelas SQLite: `Workspaces`, `Apps`, `AppVersions`, `Records`, `Approvals`, `Au
 - **Condições (E/OU)**: `ConditionDef` = 1ª regra nos próprios campos + `More` (demais regras) + `Join` (`and`/`or`).
   Definições antigas (uma regra) continuam válidas. Editadas pelo `app-condition-editor` (`builder/condition-ops.ts`)
   na visibilidade, nas automações e no "se" dos workflows.
+- **Variáveis de workflow**: `WorkflowDef.Variables` (`VariableDef`) entram no contexto no início da execução
+  (`Variables.Init`: padrão ou vazio do tipo) e os apelidos (`From`) são reaplicados depois de cada passo
+  (`Variables.RefreshAliases`). O "Transformar" roda `TransformOps` em ordem e grava com `Variables.Set` (converte ao tipo).
+  No editor, `flow-ops.ts` (`variablesAt`) lista o que existe em cada ponto e alimenta o autocomplete do `ui-input`
+  (`ui/completion.ts`) e os chips arrastáveis.
+- **Variáveis nas automações e textos**: o `WorkflowEngine` (automações de mini app/formulário) usa o mesmo
+  `Variables.Init`/`ApplyOps`/`RefreshAliases`. No front, `builder/variable-ops.ts` concentra as regras (tipos, operações,
+  `automationVarsAt`, `pageVarItems`) e `VarPanel`/`VarEditor`/`TransformOpsEditor` são usados no workflow, nas automações,
+  no design e no formulário. Textos do app e do formulário passam por `render` (`runtime/visibility.ts`) no navegador.
 - **Encadeamento de workflows**: `WorkflowEngine` carrega `depth`; `createRecord`/`updateRecord` chamam `RunTriggersAsync`
   (registro criado/atualizado) e `runWorkflow` chama `RunAsync` com `depth + 1`; acima de `MaxChainDepth` (5) a cadeia para.
   `ApprovalService.DecideAsync` dispara "registro atualizado" após gravar o status.

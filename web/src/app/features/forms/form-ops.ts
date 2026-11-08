@@ -1,5 +1,6 @@
 import { AppDefinition, FieldDef, FormDef, JumpDef, QuestionDef, QuestionKind, TableDef } from '../../core/models';
 import { newField, newId } from '../builder/editor-ops';
+import { VarItem } from '../builder/variable-ops';
 import { END, QUESTION_KINDS, YES_NO } from './form-flow';
 
 // Operações puras do editor de formulário. Recebem a definição já clonada e a mutam (testadas em form-ops.spec.ts).
@@ -26,6 +27,23 @@ function optionsFor(kind: QuestionKind, current: string[]): string[] {
 }
 
 /** Nova pergunta (e o campo dela) na posição `index` (padrão: no fim). */
+/**
+ * Respostas que existem na pergunta (`questionId`; null = tela final): só as das perguntas anteriores. Usadas como
+ * {{coluna}} no título, na descrição e na tela final (o runner troca pelo que a pessoa respondeu).
+ */
+export function answerVarsAt(def: AppDefinition, questionId: string | null): VarItem[] {
+  const form = formOf(def);
+  const index = questionId === null ? form.questions.length : form.questions.findIndex((q) => q.id === questionId);
+  return form.questions.slice(0, Math.max(0, index)).flatMap((q, i) => {
+    const f = fieldOf(def, q);
+    if (!f) return [];
+    return [{
+      value: f.name, group: 'Respostas' as const, hint: `pergunta ${i + 1}`,
+      about: `Resposta de "${q.title || f.name}". Vazia se a pessoa pulou essa pergunta pela lógica de pulo.`,
+    }];
+  });
+}
+
 export function addQuestion(def: AppDefinition, kind: QuestionKind, index?: number): QuestionDef {
   const table = formTable(def);
   const field = newField(uniqueName(table, 'Pergunta'), QUESTION_KINDS[kind].fieldType);

@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, model, signal } from '@angular/core';
 import { Api, errorMessage } from '../../core/api';
-import { ActionDef, ActionType, AppDefinition, ConditionDef, Frequency, TriggerType, WorkflowDef } from '../../core/models';
+import { ActionDef, ActionType, AppDefinition, ConditionDef, Frequency, TransformOp, TriggerType, VariableType, WorkflowDef } from '../../core/models';
 import { LAYOUT } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import {
@@ -9,8 +9,13 @@ import {
 import { PropControl } from './prop-control';
 import { ConditionEditor } from './condition-editor';
 import { hasCondition, orNull } from './condition-ops';
+import { TransformOpsEditor } from './transform-ops-editor';
+import { VarEditor } from './var-editor';
+import { VarPanel } from './var-panel';
+import { addVariable, automationVarsAt, pageInputs, removeVariable, renameVariable, variableProblem } from './variable-ops';
 
-type Node = 'trigger' | 'condition' | number;
+/** Nó aberto à direita: gatilho, condição, passo (índice) ou variável ('var:nome'). */
+type Node = 'trigger' | 'condition' | number | `var:${string}`;
 
 /**
  * Workflows visuais (referência: n8n). Nós em coluna ligados por conectores: Gatilho → Condição (opcional) → Passos.
@@ -18,7 +23,7 @@ type Node = 'trigger' | 'condition' | number;
  */
 @Component({
   selector: 'app-workflows-tab',
-  imports: [UI, LAYOUT, PropControl, ConditionEditor],
+  imports: [UI, LAYOUT, PropControl, ConditionEditor, VarPanel, VarEditor, TransformOpsEditor],
   template: `
     @let d = def();
     <div class="editor">
@@ -36,6 +41,10 @@ type Node = 'trigger' | 'condition' | number;
             <p class="panel__hint">Nenhuma automação ainda.</p>
           }
         </div>
+        @if (wf(); as w) {
+          <app-var-panel [variables]="w.variables ?? []" [items]="vars()" [selected]="variable()?.name ?? null"
+            (select)="openVar($event)" (create)="newVariable()" />
+        }
       </aside>
 
       @if (wf(); as w) {
@@ -86,6 +95,10 @@ type Node = 'trigger' | 'condition' | number;
         </section>
 
         <aside class="panel panel--right">
+          @if (variable(); as v) {
+            <app-var-editor [variable]="v" [problem]="varProblem()" [problemFor]="nameProblem" [paths]="paths()" pathPlaceholder="api.response"
+              (rename)="renameVar(v.name, $event)" (change)="setVar(v.name, $event.key, $event.value)" (remove)="deleteVariable(v.name)" />
+          } @else {
           @switch (node()) {
             @case ('trigger') {
               <div class="panel__section">
@@ -134,7 +147,7 @@ type Node = 'trigger' | 'condition' | number;
                 <p class="panel__hint">Sem condição, os passos rodam sempre. Use um campo do registro, um campo de entrada da página ou user.*.</p>
               </div>
               <div class="panel__section">
-                <app-condition-editor [condition]="w.condition" (changed)="setCondition($event)" />
+                <app-condition-editor [condition]="w.condition" [suggestions]="vars()" (changed)="setCondition($event)" />
               </div>
               @if (hasCondition(w.condition)) {
                 <div class="panel__section">
@@ -150,20 +163,28 @@ type Node = 'trigger' | 'condition' | number;
                 </div>
                 <div class="panel__section">
                   @for (s of actions[a.type].params; track s.key) {
-                    <app-prop-control [spec]="s" [def]="d" [value]="a.params[s.key] ?? ''" (valueChange)="setParam(i, s.key, $event)" />
+                    <app-prop-control [spec]="s" [def]="d" [value]="a.params[s.key] ?? ''" [suggestions]="vars()" (valueChange)="setParam(i, s.key, $event)" />
                   }
                   @if (actions[a.type].usesValues) {
                     @for (f of fieldsOf(a.params['tableId']); track f.id) {
-                      <ui-input [label]="'Valor de ' + f.name" [value]="a.values[f.name] ?? ''" (valueChange)="setValue(i, f.name, $event)" />
+                      <ui-input [label]="'Valor de ' + f.name" [value]="a.values[f.name] ?? ''" [suggestions]="vars()" (valueChange)="setValue(i, f.name, $event)" />
                     }
                   }
-                  <p class="panel__hint" ngNonBindable>Use {{campo}} para valores do registro do gatilho ou de inputs da página, e {{user.email}}, {{user.name}}, {{id}}.</p>
+                  @if (a.type === 'transform') {
+                    <app-transform-ops-editor [ops]="a.ops ?? []" [variables]="w.variables ?? []" [suggestions]="vars()" [inputPlaceholder]="responseVar"
+                      (opsChange)="setOps(i, $event)" (createVariable)="newVariable()" />
+                  }
+                  @if (a.type === 'callApi') {
+                    <button uiButton variant="ghost" (click)="saveResponse()"><ui-icon name="plus" /> Guardar resposta em variável</button>
+                  }
+                  <p class="panel__hint" ngNonBindable>Digite {{ para ver as variáveis deste passo, ou arraste do painel à esquerda.</p>
                 </div>
                 <div class="panel__section">
                   <button uiButton variant="danger" (click)="removeAction(i)">Remover passo</button>
                 </div>
               }
             }
+          }
           }
         </aside>
       } @else {
@@ -190,6 +211,33 @@ export class WorkflowsTab {
   protected readonly triggerLabels = TRIGGER_LABELS;
   protected readonly node = signal<Node>('trigger');
   protected readonly stepIndex = computed(() => { const n = this.node(); return typeof n === 'number' ? n : -1; });
+  protected readonly variable = computed(() => {
+    const n = this.node();
+    return typeof n === 'string' && n.startsWith('var:') ? ((this.wf()?.variables ?? []).find((v) => v.name === n.slice(4)) ?? null) : null;
+  });
+  /** O que existe no nó aberto: no gatilho/condição, o início; no passo, o que vem antes; numa variável, tudo (fim). */
+  protected readonly vars = computed(() => {
+    const w = this.wf();
+    if (!w) return [];
+    const n = this.node();
+    return automationVarsAt(this.def(), w, typeof n === 'number' ? n : this.variable() ? w.actions.length : 0);
+  });
+  /** Caminhos para o apelido (sem as próprias variáveis). */
+  protected readonly paths = computed(() => this.vars().filter((v) => v.group !== 'Variáveis'));
+  /** Campos e inputs: a variável não pode escondê-los (mesma regra do back). */
+  private readonly contextNames = computed(() => [...this.def().tables.flatMap((t) => t.fields.map((f) => f.name)), ...pageInputs(this.def()).map((i) => i.name)]);
+  protected readonly varProblem = computed(() => {
+    const v = this.variable();
+    const w = this.wf();
+    return v && w ? variableProblem(w, v, this.contextNames()) : null;
+  });
+  protected readonly nameProblem = (name: string) => {
+    const v = this.variable();
+    const w = this.wf();
+    if (!v || !w) return null;
+    if ((w.variables ?? []).some((x) => x !== v && x.name.toLowerCase() === name.toLowerCase())) return 'Já existe uma variável com este nome.';
+    return variableProblem(w, { ...v, name }, this.contextNames());
+  };
   protected readonly triggerText = computed(() => { const w = this.wf(); return w ? triggerSummary(this.def(), w.trigger) : ''; });
   protected readonly conditionText = computed(() => conditionSummary(this.wf()?.condition ?? null));
 
@@ -306,5 +354,48 @@ export class WorkflowsTab {
 
   protected setValue(i: number, field: string, value: string) {
     this.edit((w) => (w.actions[i].values[field] = value));
+  }
+
+  protected setOps(i: number, ops: TransformOp[]) {
+    this.edit((w) => (w.actions[i].ops = ops));
+  }
+
+  // ---------- Variáveis da automação ----------
+
+  protected readonly responseVar = '{{resposta.campo}}';
+
+  protected openVar(name: string) {
+    this.node.set(`var:${name}`);
+  }
+
+  protected newVariable() {
+    let name = '';
+    this.edit((w) => (name = addVariable(w).name));
+    this.node.set(`var:${name}`);
+  }
+
+  /** "Guardar resposta em variável": apelido (objeto) da resposta do Chamar API. */
+  protected saveResponse() {
+    let name = '';
+    this.edit((w) => (name = addVariable(w, 'resposta', 'object', 'api.response').name));
+    this.node.set(`var:${name}`);
+  }
+
+  protected renameVar(oldName: string, name: string) {
+    this.edit((w) => renameVariable(w, oldName, name));
+    this.node.set(`var:${name}`);
+  }
+
+  protected setVar(name: string, key: 'type' | 'default' | 'from', value: string) {
+    this.edit((w) => {
+      const v = w.variables!.find((x) => x.name === name)!;
+      if (key === 'type') v.type = value as VariableType;
+      else v[key] = value || null;
+    });
+  }
+
+  protected deleteVariable(name: string) {
+    this.edit((w) => removeVariable(w, name));
+    this.node.set('trigger');
   }
 }

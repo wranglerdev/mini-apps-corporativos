@@ -1,5 +1,6 @@
 import { Component, computed, input, model } from '@angular/core';
 import { AppDefinition } from '../../core/models';
+import { Suggestion } from '../../ui/completion';
 import { Option, UI } from '../../ui/ui';
 import { PropSpec } from './editor-ops';
 
@@ -10,7 +11,7 @@ import { PropSpec } from './editor-ops';
   template: `
     @let s = spec();
     @if (s.kind === 'text' || s.kind === 'textarea') {
-      <ui-input [label]="s.label" [type]="s.kind === 'textarea' ? 'textarea' : 'text'" [(value)]="value" />
+      <ui-input [label]="s.label" [type]="s.kind === 'textarea' ? 'textarea' : 'text'" [suggestions]="suggestions()" [(value)]="value" />
     } @else {
       <ui-select [label]="s.label" [options]="options()" [(value)]="value" />
     }
@@ -22,6 +23,8 @@ export class PropControl {
   /** Tabela usada para listar campos (kind = field). */
   readonly tableId = input<string | null>(null);
   readonly value = model<string>('');
+  /** Variáveis para o autocomplete dos campos de texto ({{). */
+  readonly suggestions = input<Suggestion[]>([]);
 
   protected readonly options = computed<Option[]>(() => {
     const d = this.def();

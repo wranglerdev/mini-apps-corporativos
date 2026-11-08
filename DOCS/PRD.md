@@ -58,9 +58,10 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 | Feature | Status | Como foi resolvido |
 |---|---|---|
 | Editor visual drag-and-drop | ✅ | HTML5 DnD nativo; componentes texto, botão, input, tabela, lista, card, formulário, gráfico e **container** (grade própria, aninhável até 4 níveis, arrastar para dentro/fora); grid de 12 colunas que vira 1 coluna no celular. **Visibilidade condicional** por componente ("Mostrar quando": inputs da página, papel, departamento, e-mail, se gerencia o app) |
+| Textos com variáveis | ✅ | Texto, card, título de container e rótulo de botão aceitam `{{input}}` e `{{user.name}}` (trocados no app rodando). Aba **Variáveis** no painel esquerdo do design, com chips arrastáveis e autocomplete nas propriedades |
 | Banco embutido | ✅ | Tabelas/campos texto, número, data, seleção, relação, arquivo; CRUD automático `/api/apps/{id}/{env}/tables/{t}/records` |
 | Formulários e listas gerados das tabelas | ✅ | Componentes form/table/list leem o schema; botão "Gerar página com formulário e lista". Tabelas e listas com busca (ignora acentos/maiúsculas) e paginação **no servidor** (20 por página na tabela, 12 na lista, máx. 100 pela API) |
-| Workflows visuais | ✅ | Gatilho (clique, registro criado/atualizado, **agendado**: a cada hora, diário ou semanal) → condição → ações (createRecord, updateRecord, sendEmail, navigate, callApi, requestApproval, **executar outra automação**) com variáveis `{{campo}}`. **Encadeamento**: registros criados/alterados por automação e decisões de aprovação disparam as automações da tabela, com limite de 5 níveis contra ciclos. Agendados rodam na versão publicada e têm "Executar agora" no rascunho |
+| Workflows visuais | ✅ | Gatilho (clique, registro criado/atualizado, **agendado**: a cada hora, diário ou semanal) → condição → ações (createRecord, updateRecord, sendEmail, navigate, callApi, requestApproval, **executar outra automação**, **Transformar**) com variáveis `{{campo}}`, **variáveis tipadas da automação** (padrão, apelido, ex.: de `api.response`), autocomplete ao digitar `{{` e chips arrastáveis com tooltip ([ADR 0018](ADR/0018-variaveis-em-automacoes-textos-e-formularios.md)). **Encadeamento**: registros criados/alterados por automação e decisões de aprovação disparam as automações da tabela, com limite de 5 níveis contra ciclos. Agendados rodam na versão publicada e têm "Executar agora" no rascunho |
 | Publicação em um clique | ✅ | Rascunho × produção (definição **e dados** separados); URL interna `/run/{slug}` |
 
 ### Corporativo
@@ -136,3 +137,5 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-07 | Revisão dos PRDs: limite de 500 passos por execução de workflow; redirecionamento do formulário validado também no servidor |
 | 2026-11-07 | Condições com várias regras (E/OU) na visibilidade, nas automações e no "se" dos workflows |
 | 2026-11-08 | Aba ativa do editor persistida na URL (`?aba=`) para reload e compartilhamento |
+| 2026-11-08 | Variáveis tipadas nos workflows (padrão, apelido), Transformar por operações, autocomplete `{{` e arrastar variáveis |
+| 2026-11-08 | Variáveis também nas automações de mini app/formulário, nos textos do mini app (`{{user.name}}`, inputs) e nas perguntas/tela final do formulário (respostas anteriores) |

@@ -11,6 +11,8 @@ import {
   nudgeComponent, outline, pathTo, removeComponent, removePage, summary,
 } from './editor-ops';
 import { PropControl } from './prop-control';
+import { VarPanel } from './var-panel';
+import { TEMPLATE_PROPS, pageVarItems } from './variable-ops';
 
 type Drag = { kind: 'new'; type: ComponentType } | { kind: 'move'; id: string };
 type DropTarget = { parent: string | null; index: number };
@@ -27,7 +29,7 @@ const SPANS = [
  */
 @Component({
   selector: 'app-design-tab',
-  imports: [UI, RenderedComponent, PropControl, NgTemplateOutlet, ConditionEditor],
+  imports: [UI, RenderedComponent, PropControl, NgTemplateOutlet, ConditionEditor, VarPanel],
   host: { '(document:keydown)': 'onKey($event)' },
   template: `
     @let d = def();
@@ -46,8 +48,11 @@ const SPANS = [
         </div>
 
         <div class="panel__section panel__section--grow">
-          <ui-segmented label="Painel" [columns]="2" [options]="leftTabs" [(value)]="leftTab" />
-          @if (leftTab() === 'insert') {
+          <ui-segmented label="Painel" [columns]="3" [options]="leftTabs" [(value)]="leftTab" />
+          @if (leftTab() === 'vars') {
+            <app-var-panel [items]="pageVars()" title="Nesta página" emptyText="Sem variáveis." />
+            <p class="panel__hint">Funcionam no texto, no card, no título do container e no rótulo do botão, além de "Mostrar quando".</p>
+          } @else if (leftTab() === 'insert') {
             <p class="panel__hint">Arraste para a página ou clique para inserir {{ insertHint() }}.</p>
             @for (g of groups; track g.label) {
               <h5 class="panel__group">{{ g.label }}</h5>
@@ -115,7 +120,7 @@ const SPANS = [
               <h4>Conteúdo</h4>
               @for (s of specs[c.type].props; track s.key) {
                 <app-prop-control [spec]="s" [def]="d" [tableId]="c.props['tableId']" [value]="c.props[s.key] ?? ''"
-                  (valueChange)="setProp(s.key, $event)" />
+                  [suggestions]="templated(c.type, s.key) ? pageVars() : []" (valueChange)="setProp(s.key, $event)" />
               }
             </div>
           }
@@ -203,7 +208,10 @@ export class DesignTab {
 
   protected readonly specs = COMPONENTS;
   protected readonly groups = PALETTE_GROUPS;
-  protected readonly leftTabs = [{ value: 'insert', label: 'Inserir' }, { value: 'layers', label: 'Camadas' }];
+  protected readonly leftTabs = [{ value: 'insert', label: 'Inserir' }, { value: 'layers', label: 'Camadas' }, { value: 'vars', label: 'Variáveis' }];
+  /** Inputs das páginas + user.*: autocomplete dos textos e chips arrastáveis. */
+  protected readonly pageVars = computed(() => pageVarItems(this.def(), this.page()?.id ?? null));
+  protected templated = (type: string, key: string) => (TEMPLATE_PROPS[type] ?? []).includes(key);
   protected readonly leftTab = signal('insert');
   protected readonly hasCondition = hasCondition;
   protected readonly spans = SPANS;

@@ -298,8 +298,8 @@ export const ACTIONS: Record<ActionType, { label: string; params: PropSpec[]; us
   transform: { label: 'Transformar', usesValues: false, params: [] },
 };
 
-/** Passos de controle dos projetos de workflow (features/flows): não aparecem nas automações de mini app. */
-const FLOW_ONLY: ActionType[] = ['if', 'forEach', 'wait', 'transform'];
+/** Passos de controle dos projetos de workflow (features/flows): não aparecem nas automações de mini app. O Transformar aparece. */
+const FLOW_ONLY: ActionType[] = ['if', 'forEach', 'wait'];
 
 export const ACTION_TYPES = (Object.keys(ACTIONS) as ActionType[]).filter((t) => !FLOW_ONLY.includes(t));
 
@@ -326,7 +326,7 @@ export function addWorkflow(def: AppDefinition): WorkflowDef {
 }
 
 export function newAction(type: ActionType): ActionDef {
-  return { type, params: type === 'callApi' ? { method: 'POST' } : {}, values: {} };
+  return { type, params: type === 'callApi' ? { method: 'POST' } : {}, values: {}, ...(type === 'transform' ? { ops: [] } : {}) };
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
@@ -371,6 +371,7 @@ export function actionSummary(def: AppDefinition, a: ActionDef): string {
     case 'navigate': return nameIn(def.pages, p['pageId']) ?? 'Escolha a página';
     case 'requestApproval': return p['approver'] ? `Aprovador ${p['approver']}` : 'Escolha o aprovador';
     case 'runWorkflow': return nameIn(def.workflows, p['workflowId']) ?? 'Escolha a automação';
+    case 'transform': return [...new Set((a.ops ?? []).map((o) => o.target).filter(Boolean))].map((t) => `${t} ←`).join(', ') || 'Defina as operações';
     default: return ACTIONS[a.type]?.label ?? a.type;
   }
 }

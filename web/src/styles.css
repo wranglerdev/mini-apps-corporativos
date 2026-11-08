@@ -263,6 +263,8 @@ a.index__name:hover { color: var(--pen); }
 .panel__section { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-bottom: 1px solid var(--rule-soft); }
 .panel__section:last-child { border-bottom: 0; }
 .panel__section--grow { flex: 1; }
+/* Seção dentro de seção (ex.: painel de variáveis na aba Variáveis do design) */
+.panel__section .panel__section { padding: 0; border: 0; }
 .panel__section h4 { margin-bottom: 6px; }
 .panel__section.row { flex-direction: row; }
 .panel__head { display: flex; align-items: center; justify-content: space-between; }
@@ -455,6 +457,18 @@ app-form-runner > app-page { display: flex; flex: 1; }
 /* ---------- Workflows (projeto): árvore de passos estilo n8n e execuções em waterfall estilo trigger.dev ---------- */
 .mono { font-family: var(--font-mono); }
 .var-chip { display: block; padding: 3px 6px; margin-bottom: 4px; border-radius: 4px; background: var(--rule-soft); font: 12px var(--font-mono); color: var(--pen-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.var-chip[draggable='true'] { cursor: grab; }
+.var-chip[draggable='true']:hover { background: var(--pen-soft); }
+.var-type { flex: none; font-size: 11px; color: var(--ink-faint); }
+.var-tip {
+  position: fixed; z-index: 40; left: 0; top: 0; width: 260px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: hidden; padding: 10px 12px; pointer-events: none;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); box-shadow: var(--shadow-pop); font-size: var(--fs-xs); color: var(--ink-soft);
+}
+.var-tip code { display: block; margin-bottom: 6px; font: 600 var(--fs-sm) var(--font-mono); color: var(--pen-strong); overflow-wrap: anywhere; }
+.var-tip p { margin: 4px 0 0; overflow-wrap: anywhere; }
+.var-tip p span { color: var(--ink-faint); }
+.transform-op { padding: 10px 10px 0; margin-bottom: 8px; border: 1px solid var(--rule); border-radius: var(--r-control); background: var(--paper); }
+.transform-op .option-row ui-select { flex: 1; min-width: 0; }
 .json { margin: 0; padding: 10px; max-height: 300px; overflow: auto; border-radius: 6px; background: var(--rule-soft); font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .flow--tree { max-width: 560px; align-items: stretch; }
 .flow--tree > .flow__link, .flow-branch > .flow__link { margin-left: 29px; }

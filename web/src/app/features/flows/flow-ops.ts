@@ -1,4 +1,5 @@
 import { ActionDef, ActionType, AppDefinition, RunStep, WorkflowDef } from '../../core/models';
+import { VarItem, aliasItems, declaredItems, rewriteRefs } from '../builder/variable-ops';
 import { describeCondition, hasCondition } from '../builder/condition-ops';
 import { scheduleLabel } from '../builder/editor-ops';
 
@@ -82,6 +83,7 @@ export function newStep(def: AppDefinition, type: StepType): ActionDef {
   if (type === 'callApi') step.params = { method: 'GET' };
   if (type === 'wait') step.params = { seconds: '60' };
   if (type === 'if') step.condition = { field: '', op: 'eq', value: '' };
+  if (type === 'transform') step.ops = [];
   return step;
 }
 
@@ -119,22 +121,14 @@ export function moveStep(def: AppDefinition, id: string, delta: -1 | 1) {
   [at.list[at.index], at.list[j]] = [at.list[j], at.list[at.index]];
 }
 
-/** Troca o id e atualiza as referências {{steps.antigo.…}} nos outros passos. */
+/** Troca o id e atualiza as referências {{steps.antigo.…}} nos outros passos e nos apelidos. */
 export function renameStep(def: AppDefinition, oldId: string, newId: string) {
   const at = locate(flowOf(def).actions, oldId);
   if (!at) return;
   at.step.id = newId;
-  const from = `steps.${oldId}.`;
-  const to = `steps.${newId}.`;
-  const fix = (v: string | null | undefined) => (v ?? '').split(from).join(to);
-  for (const s of allSteps(flowOf(def).actions)) {
-    for (const k of Object.keys(s.params)) s.params[k] = fix(s.params[k]);
-    for (const k of Object.keys(s.values)) s.values[k] = fix(s.values[k]);
-    if (s.condition) {
-      const c = s.condition;
-      s.condition = { ...c, field: fix(c.field), value: fix(c.value), more: (c.more ?? []).map((r) => ({ ...r, field: fix(r.field), value: fix(r.value) })) };
-    }
-  }
+  const from = `steps.${oldId}`;
+  const to = `steps.${newId}`;
+  rewriteRefs(flowOf(def), (v) => (v === from ? to : v.split(`${from}.`).join(`${to}.`)));
 }
 
 /** Problema do id digitado (null = ok). */
@@ -154,7 +148,10 @@ export function stepSummary(s: ActionDef): string {
     case 'if': return hasCondition(s.condition) ? describeCondition(s.condition, OP) : 'Informe a condição';
     case 'forEach': return p['list'] ? `${p['as'] || 'item'} em ${p['list']}` : 'Informe a lista';
     case 'wait': return `${p['seconds'] ?? '?'} s`;
-    case 'transform': return Object.keys(s.values).join(', ') || 'Defina os campos';
+    case 'transform': {
+      const targets = [...new Set((s.ops ?? []).map((o) => o.target).filter(Boolean))];
+      return (targets.length ? targets.map((t) => `${t} ←`) : Object.keys(s.values)).join(', ') || 'Defina as operações';
+    }
     default: return s.type;
   }
 }
@@ -174,21 +171,114 @@ export function flowTriggerSummary(t: WorkflowDef['trigger']): string {
   return t.type;
 }
 
-/** Variáveis disponíveis no passo selecionado (ou no fim): gatilho, saídas dos passos anteriores, item do "para cada", segredos. */
-export function variablesAt(def: AppDefinition, selectedId: string | null): string[] {
+// ---------- Variáveis do projeto de workflow (regras comuns em builder/variable-ops.ts) ----------
+
+/** Saída conhecida de cada tipo de passo (antes de testar); depois do teste, os caminhos reais entram também. */
+const KNOWN_OUTPUT: Record<string, string[]> = {
+  callApi: ['status', 'body'], sendEmail: ['to', 'subject'], forEach: ['count'], if: ['result'], wait: ['seconds'],
+};
+
+/** Nomes de item dos "para cada" (uma variável não pode escondê-los). */
+export const loopNames = (wf: WorkflowDef) => allSteps(wf.actions).filter((s) => s.type === 'forEach').map((s) => s.params['as'] || 'item');
+
+/** Caminhos de um JSON de saída (objetos até 3 níveis; listas param no próprio caminho, com .count). */
+export function outputPaths(prefix: string, json: string | null | undefined, max = 40): string[] {
+  let root: unknown;
+  try {
+    root = JSON.parse(json ?? '');
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  const walk = (node: unknown, path: string, depth: number) => {
+    if (out.length >= max) return;
+    out.push(path);
+    if (Array.isArray(node)) out.push(`${path}.count`);
+    else if (node && typeof node === 'object' && depth < 3) for (const [k, v] of Object.entries(node)) walk(v, `${path}.${k}`, depth + 1);
+  };
+  walk(root, prefix, 0);
+  return out;
+}
+
+/**
+ * Variáveis disponíveis no ponto selecionado ('trigger' = início; null = fim): variáveis do workflow, gatilho, saídas dos
+ * passos anteriores (com os caminhos do último teste), item do "para cada" e segredos. Apelido só aparece onde o caminho
+ * dele já existe.
+ */
+export function variablesAt(def: AppDefinition, selectedId: string | null, outputs: Record<string, string | null> = {}): VarItem[] {
   const wf = flowOf(def);
   const all = allSteps(wf.actions);
-  const at = selectedId ? locate(wf.actions, selectedId) : null;
+  const at = selectedId && selectedId !== 'trigger' ? locate(wf.actions, selectedId) : null;
   const inside = new Set(at ? allSteps([at.step]).map((s) => s.id) : []);
-  const stop = at ? all.indexOf(at.step) : all.length;
+  const stop = selectedId === 'trigger' ? 0 : at ? all.indexOf(at.step) : all.length;
   const before = all.slice(0, stop).filter((s) => s.id && !inside.has(s.id) && !(at?.parents ?? []).includes(s));
-  return [
-    '{{trigger.now}}', '{{trigger.today}}',
-    ...(wf.trigger.type === 'webhook' ? ['{{trigger.body.…}}'] : []),
-    ...before.map((s) => `{{steps.${s.id}.…}}`),
-    ...(at?.parents ?? []).filter((p) => p.type === 'forEach').map((p) => `{{${p.params['as'] || 'item'}.…}}`),
-    '{{secrets.NOME}}',
+  const loops = (at?.parents ?? []).filter((p) => p.type === 'forEach').map((p) => p.params['as'] || 'item');
+  const ids = new Set(before.map((s) => s.id!.toLowerCase()));
+  const vars = wf.variables ?? [];
+  const exists = (from: string): boolean => {
+    const [root, second] = from.toLowerCase().split('.');
+    if (!root) return true;
+    if (root === 'steps') return ids.has(second ?? '');
+    return root === 'trigger' || root === 'secrets' || loops.some((l) => l.toLowerCase() === root) || vars.some((v) => !v.from && v.name.toLowerCase() === root);
+  };
+
+  const items: VarItem[] = [
+    { value: 'trigger.now', group: 'Gatilho', hint: 'data e hora', about: 'Data e hora em que a execução começou (AAAA-MM-DD HH:mm).' },
+    { value: 'trigger.today', group: 'Gatilho', hint: 'data', about: 'Data em que a execução começou (AAAA-MM-DD).' },
   ];
+  if (wf.trigger.type === 'manual') items.push({ value: 'trigger.user', group: 'Gatilho', hint: 'quem executou', about: 'E-mail de quem clicou em Executar agora ou Testar.' });
+  if (wf.trigger.type === 'webhook') items.push({ value: 'trigger.body', group: 'Gatilho', hint: 'corpo JSON', about: 'Corpo JSON recebido no webhook; campos em trigger.body.campo.' });
+  for (const s of before) {
+    const base = `steps.${s.id}`;
+    const known = s.type === 'transform' ? [...(s.ops ?? []).map((o) => o.target), ...Object.keys(s.values)] : (KNOWN_OUTPUT[s.type] ?? []);
+    const paths = [base, ...known.filter(Boolean).map((k) => `${base}.${k}`), ...outputPaths(base, outputs[s.id!]).slice(1)];
+    const label = STEPS[s.type as StepType]?.label;
+    for (const value of new Set(paths))
+      items.push({ value, group: 'Passos', hint: label, about: `Saída do passo ${s.id} (${label}). Só existe depois que ele roda.` });
+  }
+  const tail: VarItem[] = [];
+  for (const l of loops)
+    tail.push(
+      { value: l, group: 'Item', hint: 'item atual', about: `Item atual do "para cada"; campos em ${l}.campo. Só existe dentro dele.` },
+      { value: `${l}.index`, group: 'Item', hint: 'posição (0, 1…)', about: 'Posição do item atual, começando em 0.' },
+    );
+  tail.push({ value: 'secrets.NOME', group: 'Segredos', hint: 'troque NOME', about: 'Segredo do workspace (aba Segredos): troque NOME. Aparece como •••• no histórico.' });
+  return [...declaredItems(wf, exists), ...items, ...aliasItems(wf, items.map((i) => i.value), exists), ...tail];
+}
+
+/**
+ * Valor de um caminho no último teste (null = sem teste ou fora do que o teste guarda). Variável comum: o último
+ * Transformar que gravou nela; apelido: o caminho de origem.
+ */
+export function testValue(wf: WorkflowDef, path: string, outputs: Record<string, string | null>): string | null {
+  const [root, ...rest] = path.split('.');
+  const v = (wf.variables ?? []).find((x) => x.name.toLowerCase() === root.toLowerCase());
+  if (v?.from) return testValue(wf, [v.from, ...rest].join('.'), outputs);
+  let json: string | null | undefined;
+  let walk = rest;
+  if (root === 'steps') {
+    json = outputs[rest[0] ?? ''];
+    walk = rest.slice(1);
+  } else if (v) {
+    const writer = allSteps(wf.actions).filter((s) => (s.ops ?? []).some((o) => o.target === v.name) && outputs[s.id ?? '']).at(-1);
+    json = writer ? outputs[writer.id!] : null;
+    walk = [v.name, ...rest];
+  }
+  if (!json) return null;
+  let node: unknown;
+  try {
+    node = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  for (const part of walk) {
+    if (Array.isArray(node) && part === 'count') node = node.length;
+    else if (node && typeof node === 'object') node = (node as Record<string, unknown>)[part];
+    else return null;
+    if (node === undefined) return null;
+  }
+  const text = typeof node === 'string' ? `"${node}"` : JSON.stringify(node);
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
 }
 
 // ---------- Execuções: resultado por passo (Testar) e linha do tempo (waterfall) ----------

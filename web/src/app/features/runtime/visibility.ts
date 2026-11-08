@@ -48,13 +48,23 @@ export function evaluate(condition: ConditionDef | null | undefined, vars: Vars)
   return condition?.join === 'or' ? rules.some(ok) : rules.every(ok);
 }
 
+/** Valor da variável sem diferenciar maiúsculas; ausente vira vazio. */
+function lookup(vars: Vars, name: string): string {
+  const key = Object.keys(vars).find((k) => k.toLowerCase() === name.trim().toLowerCase());
+  return key ? (vars[key] ?? '') : '';
+}
+
+/**
+ * Troca {{variável}} pelo valor (ausente vira vazio). Espelha `Template.Render` do backend; usado no valor das condições
+ * e nos textos do app (texto, card, título de container, rótulo de botão).
+ */
+export function render(text: string | null | undefined, vars: Vars): string {
+  return (text ?? '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, name: string) => lookup(vars, name));
+}
+
 function matches(condition: ConditionRule, vars: Vars): boolean {
-  const get = (name: string) => {
-    const key = Object.keys(vars).find((k) => k.toLowerCase() === name.trim().toLowerCase());
-    return key ? (vars[key] ?? '') : '';
-  };
-  const actual = get(condition.field);
-  const expected = (condition.value ?? '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, name: string) => get(name));
+  const actual = lookup(vars, condition.field);
+  const expected = render(condition.value, vars);
   const [a, b] = [Number(actual), Number(expected)];
   const numeric = actual.trim() !== '' && expected.trim() !== '' && !isNaN(a) && !isNaN(b);
   const same = actual.localeCompare(expected, undefined, { sensitivity: 'accent' }) === 0;

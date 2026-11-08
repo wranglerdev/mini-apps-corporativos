@@ -6,6 +6,7 @@ import { COMPONENTS } from '../builder/editor-ops';
 import { ChartBlock, ListBlock, TableBlock } from './data-blocks';
 import { FormBlock } from './form-block';
 import { RunContext } from './run-context';
+import { render } from './visibility';
 
 /**
  * Renderiza um ComponentDef (containers renderizam os filhos recursivamente, respeitando a visibilidade).
@@ -19,10 +20,10 @@ import { RunContext } from './run-context';
     @let p = c.props;
     @switch (c.type) {
       @case ('text') {
-        <p [class]="'text-' + (p['variant'] || 'body')">{{ p['text'] }}</p>
+        <p [class]="'text-' + (p['variant'] || 'body')">{{ t(p['text']) }}</p>
       }
       @case ('button') {
-        <button uiButton [variant]="p['variant'] || 'primary'" (click)="click()">{{ p['label'] || 'Botão' }}</button>
+        <button uiButton [variant]="p['variant'] || 'primary'" (click)="click()">{{ t(p['label']) || 'Botão' }}</button>
       }
       @case ('input') {
         <ui-input [label]="p['label'] ?? ''" [type]="p['inputType'] || 'text'" [placeholder]="p['placeholder'] ?? ''"
@@ -31,17 +32,17 @@ import { RunContext } from './run-context';
       @case ('container') {
         @if (p['variant'] === 'plain') {
           <div class="box-plain">
-            @if (p['title']) { <h3 class="box-plain__title">{{ p['title'] }}</h3> }
+            @if (p['title']) { <h3 class="box-plain__title">{{ t(p['title']) }}</h3> }
             <ng-container *ngTemplateOutlet="children; context: { $implicit: c.children ?? [] }" />
           </div>
         } @else {
-          <ui-card [title]="p['title']">
+          <ui-card [title]="t(p['title'])">
             <ng-container *ngTemplateOutlet="children; context: { $implicit: c.children ?? [] }" />
           </ui-card>
         }
       }
       @case ('card') {
-        <ui-card [title]="p['title']"><p class="text-body">{{ p['text'] }}</p></ui-card>
+        <ui-card [title]="t(p['title'])"><p class="text-body">{{ t(p['text']) }}</p></ui-card>
       }
       @default {
         @if (design() || !ctx) {
@@ -109,6 +110,11 @@ export class RenderedComponent {
   /** Tabelas do app por id (no editor, para as prévias; no runtime vem do RunContext). */
   readonly tables = input<Record<string, TableDef>>({});
   protected readonly ctx = inject(RunContext, { optional: true });
+
+  /** Texto com {{variáveis}}: no app troca pelos valores (inputs + user.*); no editor mostra como foi escrito. */
+  protected t(text: string | null | undefined): string {
+    return this.design() || !this.ctx ? (text ?? '') : render(text, this.ctx.vars());
+  }
 
   protected readonly label = computed(() => COMPONENTS[this.component().type].label);
   protected readonly table = computed<TableDef | null>(() => {

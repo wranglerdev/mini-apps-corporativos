@@ -5,6 +5,7 @@ import { FormSubmitResult, FormView, Props } from '../../core/models';
 import { LAYOUT, Notice } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import { answerProblem, nextIndex, progressAt } from './form-flow';
+import { render } from '../runtime/visibility';
 import { QuestionView } from './question-view';
 
 const OPEN = 'open';
@@ -28,8 +29,8 @@ const REDIRECT_MS = 4000;
         @if (done(); as d) {
           <section class="runner__screen">
             <span class="runner__check" aria-hidden="true"><ui-icon name="approvals" /></span>
-            <h1 class="runner__title">{{ d.endTitle || 'Resposta enviada' }}</h1>
-            @if (d.endText) { <p class="runner__text">{{ d.endText }}</p> }
+            <h1 class="runner__title">{{ t(d.endTitle) || 'Resposta enviada' }}</h1>
+            @if (d.endText) { <p class="runner__text">{{ t(d.endText) }}</p> }
             @if (redirect()) { <p class="muted small">Você será levado para outra página em instantes. <a [href]="redirect()">Ir agora</a></p> }
             @if (preview()) { <button uiButton (click)="restart()">Responder de novo</button> }
           </section>
@@ -44,7 +45,7 @@ const REDIRECT_MS = 4000;
           </section>
         } @else if (question(); as q) {
           <section class="runner__screen">
-            <app-question-view [question]="q" [field]="field()" [number]="step() + 1" [value]="value()" (valueChange)="setValue($event)"
+            <app-question-view [question]="shown()!" [field]="field()" [number]="step() + 1" [value]="value()" (valueChange)="setValue($event)"
               (enter)="next()" (picked)="pick($event)" />
             @if (problem(); as p) { <p class="runner__problem" role="alert">{{ p }}</p> }
             <div class="row runner__actions">
@@ -89,6 +90,16 @@ export class FormRunner {
 
   protected readonly preview = computed(() => !!this.id());
   protected readonly question = computed(() => this.view()?.form.questions[this.step()] ?? null);
+  /** Texto com {{coluna}} trocado pela resposta já dada (vazio se ainda não respondida). */
+  protected t(text: string | null | undefined): string {
+    return render(text, this.answers());
+  }
+
+  /** Pergunta com {{respostas anteriores}} trocadas pelo que a pessoa respondeu. */
+  protected readonly shown = computed(() => {
+    const q = this.question();
+    return q ? { ...q, title: this.t(q.title), description: this.t(q.description) } : null;
+  });
   protected readonly field = computed(() => this.view()?.fields.find((f) => f.id === this.question()?.fieldId));
   protected readonly value = computed(() => this.answers()[this.field()?.name ?? ''] ?? '');
   protected readonly last = computed(() => {

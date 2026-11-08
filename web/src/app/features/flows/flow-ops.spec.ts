@@ -1,8 +1,9 @@
 import { AppDefinition, RunStep } from '../../core/models';
 import {
-  cronLabel, duration, flowOf, flowTriggerSummary, idProblem, insertNear, locate, moveStep, removeStep, renameStep, resultsByStep, stepSummary,
-  variablesAt, waterfall,
+  testValue, cronLabel, duration, flowOf, flowTriggerSummary, idProblem, insertNear, locate, moveStep, outputPaths, removeStep,
+  renameStep, resultsByStep, stepSummary, variablesAt, waterfall,
 } from './flow-ops';
+import { addVariable, removeVariable, renameVariable, variableProblem } from '../builder/variable-ops';
 
 // Jornada 7 (front): builder monta o workflow e lê as execuções.
 describe('Workflow: editor', () => {
@@ -61,12 +62,92 @@ describe('Workflow: editor', () => {
     const cada = insertNear(d, 'forEach', 'api1');
     cada.params['as'] = 'chamado';
     insertNear(d, 'sendEmail', cada.id!);
-    const vars = variablesAt(d, 'email1');
-    expect(vars).toContain('{{steps.api1.…}}');
-    expect(vars).toContain('{{chamado.…}}');
-    expect(vars).not.toContain('{{steps.cada1.…}}');
-    expect(vars).not.toContain('{{steps.email1.…}}');
-    expect(vars.at(-1)).toBe('{{secrets.NOME}}');
+    const vars = variablesAt(d, 'email1').map((v) => v.value);
+    expect(vars).toContain('steps.api1.body');
+    expect(vars).toContain('chamado');
+    expect(vars).not.toContain('steps.cada1');
+    expect(vars).not.toContain('steps.email1');
+    expect(vars.at(-1)).toBe('secrets.NOME');
+    // no gatilho ainda não há saída de passo
+    expect(variablesAt(d, 'trigger').some((v) => v.group === 'Passos')).toBeFalse();
+  });
+
+  it('caminhos reais da saída do último teste entram no autocomplete', () => {
+    const d = blank();
+    insertNear(d, 'callApi', null);
+    insertNear(d, 'sendEmail', 'api1');
+    const vars = variablesAt(d, 'email1', { api1: '{"status":200,"body":{"cliente":{"nome":"Ana"},"itens":[1,2]}}' }).map((v) => v.value);
+    expect(vars).toContain('steps.api1.body.cliente.nome');
+    expect(vars).toContain('steps.api1.body.itens.count');
+    expect(outputPaths('x', 'não é json')).toEqual([]);
+    // apelido herda os caminhos da origem
+    addVariable(flowOf(d), 'pedido', 'object', 'steps.api1.body');
+    const withAlias = variablesAt(d, 'email1', { api1: '{"body":{"cliente":{"nome":"Ana"}}}' }).map((v) => v.value);
+    expect(withAlias).toContain('pedido.cliente.nome');
+  });
+
+  it('tooltip: o básico da variável e o valor no último teste', () => {
+    const d = blank();
+    insertNear(d, 'callApi', null);
+    const t = insertNear(d, 'transform', 'api1');
+    insertNear(d, 'sendEmail', t.id!);
+    addVariable(flowOf(d), 'pedido', 'object', 'steps.api1.body');
+    addVariable(flowOf(d), 'total', 'number');
+    t.ops = [{ target: 'total', op: 'count', input: '{{pedido.itens}}' }];
+    const outputs = { api1: '{"status":200,"body":{"cliente":"Ana","itens":[1,2]}}', dados1: '{"total":2}' };
+
+    const total = variablesAt(d, 'email1').find((v) => v.value === 'total')!;
+    expect(total.about).toContain('Número');
+    expect(total.empty).toBe('0');
+    expect(variablesAt(d, 'email1').find((v) => v.value === 'pedido')!.about).toContain('apelido de steps.api1.body');
+
+    expect(testValue(flowOf(d), 'pedido.cliente', outputs)).toBe('"Ana"');
+    expect(testValue(flowOf(d), 'steps.api1.body.itens.count', outputs)).toBe('2');
+    expect(testValue(flowOf(d), 'total', outputs)).toBe('2');
+    expect(testValue(flowOf(d), 'total', {})).toBeNull();
+  });
+
+  it('variável: tipo, padrão e apelido; apelido só aparece depois do passo de origem', () => {
+    const d = blank();
+    insertNear(d, 'sendEmail', null);
+    insertNear(d, 'callApi', 'email1');
+    insertNear(d, 'sendEmail', 'api1');
+    const total = addVariable(flowOf(d), 'total', 'number');
+    const cliente = addVariable(flowOf(d), 'cliente', 'object', 'steps.api1.body.cliente');
+    expect(addVariable(flowOf(d), 'total').name).toBe('total1');
+
+    expect(variablesAt(d, 'email1').map((v) => v.value)).toContain('total');
+    expect(variablesAt(d, 'email1').map((v) => v.value)).not.toContain('cliente');
+    expect(variablesAt(d, 'email2').map((v) => v.value)).toContain('cliente');
+
+    expect(variableProblem(flowOf(d), { ...total, default: 'dez' })).toContain('número');
+    expect(variableProblem(flowOf(d), { ...total, default: '10,5' })).toBeNull();
+    expect(variableProblem(flowOf(d), { ...cliente, default: '[1]' })).toContain('objeto');
+    expect(variableProblem(flowOf(d), { ...cliente, from: '{{steps.api1.body}}' })).toContain('caminho');
+    expect(variableProblem(flowOf(d), { name: 'steps', type: 'text' })).toContain('reservado');
+  });
+
+  it('renomear variável ou passo atualiza referências, apelidos e destinos do Transformar; remover leva as operações', () => {
+    const d = blank();
+    insertNear(d, 'callApi', null);
+    const t = insertNear(d, 'transform', 'api1');
+    const email = insertNear(d, 'sendEmail', t.id!);
+    addVariable(flowOf(d), 'cliente', 'object', 'steps.api1.body');
+    addVariable(flowOf(d), 'nome');
+    t.ops = [{ target: 'nome', op: 'get', input: '{{cliente}}', arg: 'nome' }];
+    email.params['subject'] = 'Olá {{ nome }} ({{cliente.email}}) {{nomeCompleto}}';
+
+    renameVariable(flowOf(d), 'nome', 'nomeCliente');
+    renameVariable(flowOf(d), 'cliente', 'pessoa');
+    renameStep(d, 'api1', 'buscar');
+
+    expect(email.params['subject']).toBe('Olá {{ nomeCliente }} ({{pessoa.email}}) {{nomeCompleto}}');
+    expect(t.ops[0]).toEqual({ target: 'nomeCliente', op: 'get', input: '{{pessoa}}', arg: 'nome' });
+    expect(flowOf(d).variables![0].from).toBe('steps.buscar.body');
+    expect(stepSummary(t)).toBe('nomeCliente ←');
+
+    removeVariable(flowOf(d), 'nomeCliente');
+    expect(t.ops).toEqual([]);
   });
 
   it('resumos do gatilho e dos passos', () => {

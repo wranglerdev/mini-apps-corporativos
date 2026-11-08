@@ -3,7 +3,8 @@ import { AppDefinition, ConditionOp, FieldDef, JumpDef, QuestionDef, QuestionKin
 import { UI } from '../../ui/ui';
 import { CONDITION_OPS } from '../runtime/visibility';
 import { PALETTE_KINDS, QUESTION_KINDS, choicesOf } from './form-flow';
-import { addJump, addQuestion, fieldOf, formOf, formTable, jumpTargets, moveQuestion, removeJump, removeQuestion, setKind } from './form-ops';
+import { addJump, addQuestion, answerVarsAt, fieldOf, formOf, formTable, jumpTargets, moveQuestion, removeJump, removeQuestion, setKind } from './form-ops';
+import { VarPanel } from '../builder/var-panel';
 import { QuestionView } from './question-view';
 
 type Selection = 'welcome' | 'end' | string;
@@ -14,7 +15,7 @@ type Selection = 'welcome' | 'end' | string;
  */
 @Component({
   selector: 'app-form-tab',
-  imports: [UI, QuestionView],
+  imports: [UI, QuestionView, VarPanel],
   template: `
     @let f = form();
     <div class="editor">
@@ -48,6 +49,7 @@ type Selection = 'welcome' | 'end' | string;
             </button>
           }
         </div>
+        <app-var-panel [items]="answers()" title="Respostas anteriores" emptyText="As respostas das perguntas anteriores aparecem aqui; use no título e na descrição." />
       </aside>
 
       <section class="canvas" aria-label="Prévia">
@@ -99,8 +101,8 @@ type Selection = 'welcome' | 'end' | string;
           @case ('end') {
             <div class="panel__section"><div class="panel__title">Tela final</div></div>
             <div class="panel__section">
-              <ui-input label="Título" [value]="f.endTitle" (valueChange)="setForm('endTitle', $event)" />
-              <ui-input label="Texto" type="textarea" [value]="f.endText" (valueChange)="setForm('endText', $event)" />
+              <ui-input label="Título" [value]="f.endTitle" [suggestions]="answers()" (valueChange)="setForm('endTitle', $event)" />
+              <ui-input label="Texto" type="textarea" [value]="f.endText" [suggestions]="answers()" (valueChange)="setForm('endText', $event)" />
               <ui-input label="Redirecionar para (opcional)" placeholder="https://intranet.corp.local/rh" [value]="f.redirectUrl ?? ''"
                 (valueChange)="setForm('redirectUrl', $event)" />
               <p class="panel__hint">Só endereços http(s). Leva o respondente depois de alguns segundos.</p>
@@ -112,8 +114,10 @@ type Selection = 'welcome' | 'end' | string;
                 <div class="panel__title"><ui-icon [name]="kinds[q.kind].icon" /> Pergunta {{ index() + 1 }} · {{ kinds[q.kind].label }}</div>
               </div>
               <div class="panel__section">
-                <ui-input label="Pergunta" type="textarea" [value]="q.title" (valueChange)="setQuestion('title', $event)" />
-                <ui-input label="Descrição (opcional)" placeholder="Ajuda abaixo da pergunta" [value]="q.description" (valueChange)="setQuestion('description', $event)" />
+                <ui-input label="Pergunta" type="textarea" [value]="q.title" [suggestions]="answers()" (valueChange)="setQuestion('title', $event)" />
+                <ui-input label="Descrição (opcional)" placeholder="Ajuda abaixo da pergunta" [value]="q.description" [suggestions]="answers()"
+                  (valueChange)="setQuestion('description', $event)" />
+                @if (answers().length) { <p class="panel__hint">Cite uma resposta anterior digitando {{ open }} (ex.: "Obrigado, {{ example }}!").</p> }
                 <ui-select label="Tipo" [options]="kindOptions" [value]="q.kind" placeholder="—" (valueChange)="changeKind($event)" />
                 <ui-checkbox label="Obrigatória" [checked]="!!field()?.required" (checkedChange)="setField('required', $event)" />
                 <ui-input label="Coluna na tabela Respostas" [value]="field()?.name ?? ''" (valueChange)="setField('name', $event)" />
@@ -185,6 +189,13 @@ export class FormTab {
   protected readonly form = computed(() => formOf(this.def()));
   protected readonly index = computed(() => this.form().questions.findIndex((q) => q.id === this.selected()));
   protected readonly question = computed<QuestionDef | null>(() => this.form().questions[this.index()] ?? null);
+  /** Respostas que existem na seleção: na pergunta, as anteriores; na tela final, todas; nas boas-vindas, nenhuma. */
+  protected readonly answers = computed(() => {
+    const s = this.selected();
+    return s === 'welcome' ? [] : answerVarsAt(this.def(), s === 'end' ? null : s);
+  });
+  protected readonly open = '{{';
+  protected readonly example = '{{Nome}}';
   protected readonly field = computed(() => {
     const q = this.question();
     return q ? fieldOf(this.def(), q) : undefined;

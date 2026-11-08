@@ -1,6 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { ConditionDef, ConditionJoin, ConditionRule } from '../../core/models';
 import { Option, UI } from '../../ui/ui';
+import { Suggestion } from '../../ui/completion';
 import { CONDITION_OPS } from '../runtime/visibility';
 import { JOIN_OPTIONS, addRule, removeRule, rulesOf, setJoin, setRule } from './condition-ops';
 
@@ -26,12 +27,12 @@ import { JOIN_OPTIONS, addRule, removeRule, rulesOf, setJoin, setRule } from './
             [value]="r.field" (valueChange)="set(i, 'field', $event)" />
         } @else {
           <ui-input [label]="i === 0 ? fieldLabel() : 'Campo / variável'" [placeholder]="fieldPlaceholder()" [value]="r.field"
-            (valueChange)="set(i, 'field', $event)" />
+            [suggestions]="suggestions()" complete="path" [mono]="!!suggestions().length" (valueChange)="set(i, 'field', $event)" />
         }
         @if (r.field) {
           <ui-select label="Operador" [options]="ops" [value]="r.op" (valueChange)="set(i, 'op', $event)" />
           @if (r.op !== 'empty' && r.op !== 'notEmpty') {
-            <ui-input [label]="valueLabel()" [value]="r.value ?? ''" (valueChange)="set(i, 'value', $event)" />
+            <ui-input [label]="valueLabel()" [value]="r.value ?? ''" [suggestions]="suggestions()" (valueChange)="set(i, 'value', $event)" />
           }
         }
       </div>
@@ -48,6 +49,8 @@ export class ConditionEditor {
   readonly fieldLabel = input('Campo / variável');
   readonly fieldPlaceholder = input('');
   readonly valueLabel = input('Valor');
+  /** Variáveis para o autocomplete (workflows): campo como caminho, valor com {{. */
+  readonly suggestions = input<Suggestion[]>([]);
   readonly changed = output<ConditionDef>();
 
   protected readonly ops = CONDITION_OPS;

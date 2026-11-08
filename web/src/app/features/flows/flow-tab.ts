@@ -1,13 +1,17 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, computed, inject, input, linkedSignal, model, signal } from '@angular/core';
 import { Api, errorMessage } from '../../core/api';
-import { ActionDef, AppDefinition, ConditionDef, Frequency, RunDetail, WorkflowDef } from '../../core/models';
+import { ActionDef, AppDefinition, ConditionDef, Frequency, RunDetail, TransformOp, VariableType, WorkflowDef } from '../../core/models';
 import { UI } from '../../ui/ui';
 import { WEEKDAYS } from '../builder/editor-ops';
 import { ConditionEditor } from '../builder/condition-editor';
+import { TransformOpsEditor } from '../builder/transform-ops-editor';
+import { VarEditor } from '../builder/var-editor';
+import { VarPanel } from '../builder/var-panel';
+import { VarItem, addVariable, removeVariable, renameVariable, variableProblem } from '../builder/variable-ops';
 import {
-  PALETTE, RUN_STATUS, STEPS, StepType, flowOf, flowTriggerSummary, idProblem, insertNear, isDone, locate, moveStep, removeStep, renameStep,
-  resultsByStep, stepSummary, variablesAt,
+  PALETTE, RUN_STATUS, STEPS, StepType, flowOf, flowTriggerSummary, idProblem, insertNear, isDone, locate, loopNames, moveStep, removeStep, renameStep,
+  resultsByStep, stepSummary, testValue, variablesAt,
 } from './flow-ops';
 
 const TEST_POLL_MS = 700;
@@ -20,7 +24,7 @@ const TEST_MAX_POLLS = 120;
  */
 @Component({
   selector: 'app-flow-tab',
-  imports: [UI, NgTemplateOutlet, ConditionEditor],
+  imports: [UI, NgTemplateOutlet, ConditionEditor, VarPanel, VarEditor, TransformOpsEditor],
   template: `
     @let wf = flow();
     <div class="editor">
@@ -35,11 +39,8 @@ const TEST_MAX_POLLS = 120;
             }
           </div>
         }
-        <div class="panel__section panel__section--grow">
-          <h4>Variáveis neste ponto</h4>
-          <p class="panel__hint">A saída de cada passo fica em steps.&lt;id&gt;.</p>
-          @for (v of vars(); track v) { <code class="var-chip">{{ v }}</code> }
-        </div>
+        <app-var-panel [variables]="variables()" [items]="vars()" [selected]="selectedVar()" [lastValue]="lastValue"
+          (select)="selected.set('var:' + $event)" (create)="newVariable()" />
       </aside>
 
       <section class="canvas canvas--dots" aria-label="Passos do workflow">
@@ -86,9 +87,13 @@ const TEST_MAX_POLLS = 120;
                 <p class="panel__hint">Sistemas externos disparam com POST (corpo JSON, que vira {{ bodyVar }}). Vale para a versão publicada.</p>
                 <div class="webhook"><code>{{ webhookUrl() }}</code>@if (wf.trigger.webhookKey) {<code>X-Webhook-Key: {{ wf.trigger.webhookKey }}</code>}</div>
                 <button uiButton (click)="newKey()"><ui-icon name="key" /> {{ wf.trigger.webhookKey ? 'Trocar chave' : 'Gerar chave' }}</button>
+                <button uiButton variant="ghost" (click)="saveToVariable('entrada', 'trigger.body')"><ui-icon name="plus" /> Guardar corpo em variável</button>
               }
             }
           </div>
+        } @else if (variable(); as v) {
+          <app-var-editor [variable]="v" [problem]="varProblem()" [problemFor]="nameProblem" [paths]="paths()"
+            (rename)="renameVar(v.name, $event)" (change)="setVar(v.name, $event.key, $event.value)" (remove)="deleteVariable(v.name)" />
         } @else if (step(); as s) {
           <div class="panel__section">
             <div class="panel__title"><ui-icon [name]="specOf(s).icon" /> {{ specOf(s).label }}</div>
@@ -102,24 +107,31 @@ const TEST_MAX_POLLS = 120;
                 <ui-select [label]="p.label" [options]="p.options" [value]="s.params[p.key] ?? ''" (valueChange)="setParam(p.key, $event)" />
               } @else {
                 <ui-input [label]="p.label" [type]="p.textarea ? 'textarea' : 'text'" [placeholder]="p.placeholder ?? ''" [value]="s.params[p.key] ?? ''"
-                  (valueChange)="setParam(p.key, $event)" />
+                  [mono]="!!p.mono" [suggestions]="vars()" (valueChange)="setParam(p.key, $event)" />
               }
+            }
+            @if (s.type === 'callApi') {
+              <button uiButton variant="ghost" (click)="saveToVariable(s.id + '_resposta', 'steps.' + s.id + '.body')"><ui-icon name="plus" /> Guardar resposta em variável</button>
             }
             @if (s.type === 'if') {
               <app-condition-editor [condition]="s.condition ?? null" fieldLabel="Valor (variável)" fieldPlaceholder="steps.api1.body.total"
-                valueLabel="Comparar com" (changed)="setCondition($event)" />
+                valueLabel="Comparar com" [suggestions]="vars()" (changed)="setCondition($event)" />
               <p class="panel__hint">"Então" roda se a condição for verdadeira; "Senão", se for falsa.</p>
             }
             @if (s.type === 'transform') {
+              <app-transform-ops-editor [ops]="s.ops ?? []" [variables]="variables()" [suggestions]="vars()" (opsChange)="setOps($event)"
+                (createVariable)="newVariable()" />
               @for (kv of entries(s); track kv.key; let i = $index) {
                 <div class="option-row">
                   <ui-input [label]="'Campo ' + (i + 1)" [value]="kv.key" (valueChange)="renameValue(kv.key, $event)" />
-                  <ui-input label="Valor" [value]="kv.value" (valueChange)="setValue(kv.key, $event)" />
+                  <ui-input label="Valor" [value]="kv.value" [suggestions]="vars()" (valueChange)="setValue(kv.key, $event)" />
                   <button uiButton variant="ghost" class="icon-btn" [attr.aria-label]="'Remover ' + kv.key" (click)="removeValue(kv.key)">×</button>
                 </div>
               }
-              <button uiButton variant="ghost" (click)="addValue()"><ui-icon name="plus" /> Adicionar campo</button>
-              <p class="panel__hint">Monta um objeto: os próximos passos leem steps.{{ s.id }}.campo.</p>
+              @if (entries(s).length) {
+                <button uiButton variant="ghost" (click)="addValue()"><ui-icon name="plus" /> Adicionar campo</button>
+                <p class="panel__hint">Campos (formato antigo): os próximos passos leem steps.{{ s.id }}.campo.</p>
+              }
             }
           </div>
           @if (specOf(s).action) {
@@ -222,10 +234,19 @@ export class FlowTab {
     const id = this.selected();
     return id === 'trigger' ? null : (locate(this.flow().actions, id)?.step ?? null);
   });
-  /** No gatilho ainda não há saída de passo; no resto, o que vem antes do passo selecionado. */
-  protected readonly vars = computed(() => this.selected() === 'trigger'
-    ? variablesAt(this.def(), null).filter((v) => !v.startsWith('{{steps.'))
-    : variablesAt(this.def(), this.selected()));
+  protected readonly variables = computed(() => this.flow().variables ?? []);
+  protected readonly variable = computed(() => {
+    const id = this.selected();
+    return id.startsWith('var:') ? (this.variables().find((v) => v.name === id.slice(4)) ?? null) : null;
+  });
+  /** Saída do último teste por passo: os caminhos reais entram no autocomplete. */
+  private readonly outputs = computed(() =>
+    Object.fromEntries((this.testRun()?.steps ?? []).filter((s) => s.stepId).map((s) => [s.stepId!, s.output])));
+  /** O que existe no ponto selecionado: no gatilho ainda não há saída de passo; com uma variável aberta, tudo (fim). */
+  protected readonly vars = computed<VarItem[]>(() =>
+    variablesAt(this.def(), this.selected().startsWith('var:') ? null : this.selected(), this.outputs()));
+  /** Caminhos para o apelido (sem a própria lista de variáveis nem segredos). */
+  protected readonly paths = computed(() => this.vars().filter((v) => v.group !== 'Variáveis' && v.group !== 'Segredos'));
   protected readonly triggerText = computed(() => flowTriggerSummary(this.flow().trigger));
   protected readonly triggerIcon = computed(() => ({ manual: 'manual', webhook: 'webhook', schedule: 'schedule' })[this.flow().trigger.type as string] ?? 'manual');
   protected readonly webhookUrl = computed(() => this.api.flowWebhookUrl(this.appId()));
@@ -247,6 +268,20 @@ export class FlowTab {
   protected result = (s: ActionDef) => (s.id ? this.results()[s.id] : undefined);
   protected tone = (status: string) => RUN_STATUS[status]?.tone ?? 'neutral';
   protected entries = (s: ActionDef) => Object.entries(s.values).map(([key, value]) => ({ key, value: value ?? '' }));
+  protected readonly selectedVar = computed(() => this.variable()?.name ?? null);
+  protected readonly varProblem = computed(() => {
+    const v = this.variable();
+    return v ? variableProblem(this.flow(), v, loopNames(this.flow())) : null;
+  });
+  /** Nome digitado para a variável aberta: inválido não renomeia. */
+  protected readonly nameProblem = (name: string) => {
+    const v = this.variable();
+    if (!v) return null;
+    if (this.variables().some((x) => x !== v && x.name.toLowerCase() === name.toLowerCase())) return 'Já existe uma variável com este nome.';
+    return variableProblem(this.flow(), { ...v, name }, loopNames(this.flow()));
+  };
+  /** Valor do caminho no último teste (tooltip). */
+  protected readonly lastValue = (path: string) => testValue(this.flow(), path, this.outputs());
   protected output(s: ActionDef): string | null {
     const found = (this.testRun()?.steps ?? []).filter((x) => x.stepId === s.id).at(-1);
     if (!found) return null;
@@ -350,6 +385,43 @@ export class FlowTab {
 
   protected removeValue(key: string) {
     this.edit((d) => delete this.current(d).values[key]);
+  }
+
+  // ---------- Variáveis ----------
+
+  protected newVariable() {
+    let name = '';
+    this.edit((d) => (name = addVariable(flowOf(d)).name));
+    this.selected.set(`var:${name}`);
+  }
+
+  /** "Guardar resposta/corpo em variável": cria um apelido (objeto) do caminho e abre para renomear. */
+  protected saveToVariable(base: string, from: string) {
+    let name = '';
+    this.edit((d) => (name = addVariable(flowOf(d), base, 'object', from).name));
+    this.selected.set(`var:${name}`);
+  }
+
+  protected renameVar(oldName: string, name: string) {
+    this.edit((d) => renameVariable(flowOf(d), oldName, name));
+    this.selected.set(`var:${name}`);
+  }
+
+  protected setVar(name: string, key: 'type' | 'default' | 'from', value: string) {
+    this.edit((d) => {
+      const v = flowOf(d).variables!.find((x) => x.name === name)!;
+      if (key === 'type') v.type = value as VariableType;
+      else v[key] = value || null;
+    });
+  }
+
+  protected deleteVariable(name: string) {
+    this.edit((d) => removeVariable(flowOf(d), name));
+    this.selected.set('trigger');
+  }
+
+  protected setOps(ops: TransformOp[]) {
+    this.edit((d) => (this.current(d).ops = ops));
   }
 
   protected setTriggerType(type: string) {
