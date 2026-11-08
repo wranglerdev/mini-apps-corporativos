@@ -1,5 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, TemplateRef, computed, contentChild, input, model, output } from '@angular/core';
+import { Component, ElementRef, TemplateRef, computed, contentChild, input, model, output, signal, viewChild } from '@angular/core';
+import { CompleteMode, Suggestion, applyCompletion, completionAt, filterSuggestions } from './completion';
 
 // ============================================================================================
 // DESIGN SYSTEM (camada de troca). Features usam SOMENTE estes componentes + classes de layout
@@ -41,9 +42,21 @@ export class UiButton {
         <span>{{ label() }}@if (required()) { <b class="ui-req">*</b> }</span>
       }
       @if (type() === 'textarea') {
-        <textarea rows="3" [value]="value()" [placeholder]="placeholder()" (input)="onInput($event)"></textarea>
+        <textarea #field rows="3" [value]="value()" [placeholder]="placeholder()" [class.mono]="mono()" (input)="onInput($event)"
+          (keydown)="onKey($event)" (click)="refresh()" (blur)="close()" [attr.aria-autocomplete]="suggestions().length ? 'list' : null"></textarea>
       } @else {
-        <input [type]="type()" [value]="value()" [placeholder]="placeholder()" (input)="onInput($event)" />
+        <input #field [type]="type()" [value]="value()" [placeholder]="placeholder()" [class.mono]="mono()" (input)="onInput($event)"
+          (keydown)="onKey($event)" (click)="refresh()" (blur)="close()" [attr.aria-autocomplete]="suggestions().length ? 'list' : null" />
+      }
+      @if (matches().length) {
+        <span class="ui-complete" role="listbox">
+          @for (m of matches(); track m.value; let i = $index) {
+            <span role="option" class="ui-complete__item" [class.active]="i === active()" [attr.aria-selected]="i === active()"
+              (mousedown)="$event.preventDefault(); pick(m)">
+              <code>{{ m.value }}</code>@if (m.hint) {<small>{{ m.hint }}</small>}
+            </span>
+          }
+        </span>
       }
     </label>
   `,
@@ -56,10 +69,61 @@ export class UiInput {
   readonly required = input(false);
   /** Sem moldura até passar o mouse/focar (ex.: nome do app na barra do editor, como no Figma). */
   readonly inline = input(false);
+  /** Fonte monoespaçada (URLs, JSON, caminhos). */
+  readonly mono = input(false);
+  /** Variáveis para o autocomplete: em 'template' abre ao digitar {{; em 'path' o campo todo é o caminho. */
+  readonly suggestions = input<Suggestion[]>([]);
+  readonly complete = input<CompleteMode>('template');
   readonly value = model<string>('');
+
+  private readonly field = viewChild<ElementRef<HTMLInputElement | HTMLTextAreaElement>>('field');
+  private readonly query = signal<string | null>(null);
+  protected readonly active = signal(0);
+  protected readonly matches = computed(() => {
+    const q = this.query();
+    return q === null || !this.suggestions().length ? [] : filterSuggestions(this.suggestions(), q);
+  });
 
   protected onInput(e: Event) {
     this.value.set((e.target as HTMLInputElement).value);
+    this.refresh();
+  }
+
+  protected refresh() {
+    const el = this.field()?.nativeElement;
+    if (!el || !this.suggestions().length) return;
+    const at = completionAt(el.value, el.selectionStart ?? el.value.length, this.complete());
+    this.query.set(at?.query ?? null);
+    this.active.set(0);
+  }
+
+  protected close() {
+    this.query.set(null);
+  }
+
+  protected onKey(e: KeyboardEvent) {
+    const list = this.matches();
+    if (!list.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.active.set((this.active() + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      this.pick(list[this.active()]);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      this.close();
+    }
+  }
+
+  protected pick(s: Suggestion) {
+    const el = this.field()?.nativeElement;
+    if (!el) return;
+    const next = applyCompletion(el.value, el.selectionStart ?? el.value.length, this.complete(), s.value);
+    el.value = next.text;
+    el.setSelectionRange(next.caret, next.caret);
+    this.value.set(next.text);
+    this.refresh();
   }
 }
 

@@ -143,8 +143,8 @@
 .ui-btn--ghost:hover { background: var(--hover); border-color: transparent; color: var(--ink); }
 
 /* Campos */
-.ui-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; min-width: 0; }
-.ui-field > span { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-soft); }
+.ui-field { position: relative; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; min-width: 0; }
+.ui-field > span:not(.ui-complete) { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-soft); }
 .ui-field input, .ui-field select, .ui-field textarea {
   width: 100%;
   min-height: 34px;
@@ -164,6 +164,16 @@
 .ui-field--inline input { min-height: 28px; padding: 3px 6px; border-color: transparent; background: transparent; font-weight: 600; }
 .ui-field--inline input:hover { border-color: var(--rule); }
 .ui-req { color: var(--bad); font-weight: 600; }
+.ui-field input.mono, .ui-field textarea.mono { font: var(--fs-sm) / 1.5 var(--font-mono); }
+/* Autocomplete de variáveis ({{ no campo) */
+.ui-complete {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; max-height: 240px; overflow: auto; padding: 4px;
+  border: 1px solid var(--rule); border-radius: var(--r-control); background: var(--sheet); box-shadow: var(--shadow-pop);
+}
+.ui-complete__item { display: flex; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+.ui-complete__item code { font: var(--fs-sm) var(--font-mono); color: var(--ink); overflow-wrap: anywhere; }
+.ui-complete__item small { margin-left: auto; color: var(--ink-faint); font-size: 11px; white-space: nowrap; }
+.ui-complete__item:hover, .ui-complete__item.active { background: var(--pen-soft); }
 .ui-check { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-md); margin: 0 16px 10px 0; cursor: pointer; white-space: nowrap; }
 .ui-check input { width: 15px; height: 15px; accent-color: var(--pen); }
 
