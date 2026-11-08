@@ -1,7 +1,7 @@
 import { AppDefinition, PageDef } from '../../core/models';
 import {
   ACTION_TYPES, COMPONENT_TYPES, PALETTE_GROUPS, actionSummary, conditionSummary, triggerSummary,
-  MAX_DEPTH, addTable, duplicateComponent, nudgeComponent, outline, pathTo, scheduleLabel, findComponent, flatten, generatePageForTable, insertComponent, moveComponent, newComponent,
+  MAX_DEPTH, addTable, editorTab, duplicateComponent, nudgeComponent, outline, pathTo, scheduleLabel, findComponent, flatten, generatePageForTable, insertComponent, moveComponent, newComponent,
   removeComponent, removeTable,
 } from './editor-ops';
 
@@ -171,5 +171,14 @@ describe('editor-ops', () => {
     expect(step('navigate', { pageId: 'p1' })).toBe('Início');
     expect(step('runWorkflow', { workflowId: 'w1' })).toBe('Avisar');
     expect(ACTION_TYPES.every((t) => step(t, {}).length > 0)).toBeTrue();
+  });
+
+  it('aba do editor vem da URL (?aba=) para reload e link; inválida ou de outro tipo cai na primeira do tipo', () => {
+    expect(editorTab('workflow', 'execucoes')).toBe('execucoes');
+    expect(editorTab('form', 'respostas')).toBe('respostas');
+    expect(editorTab('app', 'publicacao')).toBe('publicacao');
+    expect(editorTab('app', undefined)).toBe('design');
+    expect(editorTab('form', 'design')).toBe('perguntas');
+    expect(editorTab('workflow', 'xyz')).toBe('workflow');
   });
 });

@@ -1,10 +1,11 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api';
 import { AppDefinition, AppDetail, AppVersion } from '../../core/models';
 import { LAYOUT } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import { DataTab } from './data-tab';
+import { EDITOR_TABS, EditorTab, editorTab } from './editor-ops';
 import { DesignTab } from './design-tab';
 import { WorkflowsTab } from './workflows-tab';
 import { FormResponsesTab } from '../forms/form-responses-tab';
@@ -14,21 +15,6 @@ import { FlowTab } from '../flows/flow-tab';
 import { RunsTab } from '../flows/runs-tab';
 import { SecretsTab } from '../flows/secrets-tab';
 
-type Tab = 'design' | 'data' | 'workflows' | 'settings' | 'questions' | 'responses' | 'share' | 'flow' | 'runs' | 'secrets';
-
-const APP_TABS: { id: Tab; label: string }[] = [
-  { id: 'design', label: 'Design' }, { id: 'data', label: 'Dados' }, { id: 'workflows', label: 'Automações' }, { id: 'settings', label: 'Publicação' },
-];
-/** Formulário (DOCS/PRD-FORMS.md): perguntas, respostas e compartilhar; automações e publicação como nos apps. */
-const FORM_TABS: { id: Tab; label: string }[] = [
-  { id: 'questions', label: 'Perguntas' }, { id: 'responses', label: 'Respostas' }, { id: 'share', label: 'Compartilhar' },
-  { id: 'workflows', label: 'Automações' }, { id: 'settings', label: 'Publicação' },
-];
-/** Workflow (DOCS/PRD-WORKFLOWS.md): passos, execuções, segredos do workspace e publicação. */
-const FLOW_TABS: { id: Tab; label: string }[] = [
-  { id: 'flow', label: 'Workflow' }, { id: 'runs', label: 'Execuções' }, { id: 'secrets', label: 'Segredos' }, { id: 'settings', label: 'Publicação' },
-];
-const TABS_BY_KIND = { app: APP_TABS, form: FORM_TABS, workflow: FLOW_TABS };
 const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
 
 /** Modo builder: edita o rascunho, publica em um clique e gerencia versões. */
@@ -53,7 +39,7 @@ const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
               <span class="chip chip--warn" title="Alterações não salvas">Não salvo</span>
             }
           </ng-container>
-          <ui-segmented nav label="Área do editor" [options]="tabs()" [value]="tab()" (valueChange)="tab.set($any($event))" />
+          <ui-segmented nav label="Área do editor" [options]="tabs()" [value]="tab()" (valueChange)="setTab($any($event))" />
           <ng-container ngProjectAs="[actions]">
             @if (a.publishedVersion && !isFlow()) {
               <a uiButton variant="ghost" [routerLink]="[isForm() ? '/f' : '/run', a.slug]" target="_blank" title="Abrir a versão em produção">
@@ -72,24 +58,24 @@ const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
 
         @switch (tab()) {
           @case ('design') { <app-design-tab [def]="def()" (defChange)="change($event)" /> }
-          @case ('questions') { <app-form-tab [def]="def()" (defChange)="change($event)" /> }
-          @case ('flow') { <app-flow-tab [def]="def()" (defChange)="change($event)" [appId]="a.id" [save]="saveForTest" /> }
-          @case ('runs') { <div class="tool-scroll"><app-runs-tab [appId]="a.id" [published]="a.published" /></div> }
-          @case ('secrets') { <div class="tool-scroll"><app-secrets-tab [workspaceId]="a.workspaceId" /></div> }
-          @case ('responses') {
+          @case ('perguntas') { <app-form-tab [def]="def()" (defChange)="change($event)" /> }
+          @case ('workflow') { <app-flow-tab [def]="def()" (defChange)="change($event)" [appId]="a.id" [save]="saveForTest" /> }
+          @case ('execucoes') { <div class="tool-scroll"><app-runs-tab [appId]="a.id" [published]="a.published" /></div> }
+          @case ('segredos') { <div class="tool-scroll"><app-secrets-tab [workspaceId]="a.workspaceId" /></div> }
+          @case ('respostas') {
             <div class="tool-scroll"><app-form-responses-tab [appId]="a.id" [published]="a.published" /></div>
           }
-          @case ('share') {
+          @case ('compartilhar') {
             <div class="tool-scroll">
               <app-form-share-tab [app]="a" [def]="def()" (defChange)="change($event)" [departments]="departments()"
-                (departmentsChange)="departments.set($event); dirty.set(true)" (openAutomations)="tab.set('workflows')" />
+                (departmentsChange)="departments.set($event); dirty.set(true)" (openAutomations)="setTab('automacoes')" />
             </div>
           }
-          @case ('workflows') { <app-workflows-tab [appId]="a.id" [def]="def()" (defChange)="change($event)" /> }
-          @case ('data') {
-            <div class="tool-scroll"><app-data-tab [appId]="a.id" [def]="def()" (defChange)="change($event)" (pageGenerated)="tab.set('design')" /></div>
+          @case ('automacoes') { <app-workflows-tab [appId]="a.id" [def]="def()" (defChange)="change($event)" /> }
+          @case ('dados') {
+            <div class="tool-scroll"><app-data-tab [appId]="a.id" [def]="def()" (defChange)="change($event)" (pageGenerated)="setTab('design')" /></div>
           }
-          @case ('settings') {
+          @case ('publicacao') {
             <div class="tool-scroll">
               <div class="settings">
                 <app-section layout="aside" title="Informações" description="Como o app aparece no catálogo e em Meus apps.">
@@ -141,20 +127,24 @@ const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
 })
 export class EditorPage {
   readonly id = input.required<string>();
+  /** ?aba= da URL (withComponentInputBinding): aba ativa persiste em reload e link compartilhado. */
+  readonly tabParam = input<string | undefined>(undefined, { alias: 'aba' });
   private readonly api = inject(Api);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly kind = computed(() => this.app()?.kind ?? 'app');
   protected readonly isForm = computed(() => this.kind() === 'form');
   protected readonly isFlow = computed(() => this.kind() === 'workflow');
   protected readonly icon = computed(() => ICON_BY_KIND[this.kind()]);
-  protected readonly tabs = computed(() => TABS_BY_KIND[this.kind()].map((t) => ({ value: t.id, label: t.label })));
+  protected readonly tabs = computed(() => EDITOR_TABS[this.kind()].map((t) => ({ value: t.id, label: t.label })));
   /** "Testar" do workflow roda o que está salvo: salva antes. */
   protected readonly saveForTest = async () => {
     await this.save();
     return !this.notice()?.error;
   };
   protected readonly app = signal<AppDetail | null>(null);
-  protected readonly tab = signal<Tab>('design');
+  protected readonly tab = computed(() => editorTab(this.kind(), this.tabParam()));
   protected readonly def = signal<AppDefinition>({ pages: [], tables: [], workflows: [] });
   protected readonly name = signal('');
   protected readonly description = signal('');
@@ -174,6 +164,10 @@ export class EditorPage {
   }
 
   protected when = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+  protected setTab(tab: EditorTab) {
+    this.router.navigate([], { relativeTo: this.route, queryParams: { aba: tab }, replaceUrl: true });
+  }
 
   protected change(def: AppDefinition) {
     this.def.set(def);
@@ -212,8 +206,6 @@ export class EditorPage {
   }
 
   private setApp(a: AppDetail) {
-    const tabs = TABS_BY_KIND[a.kind] ?? APP_TABS;
-    if (!tabs.some((t) => t.id === this.tab())) this.tab.set(tabs[0].id);
     this.app.set(a);
     this.def.set(a.draft);
     this.name.set(a.name);

@@ -1,5 +1,5 @@
 import {
-  ActionDef, ActionType, AppDefinition, ComponentDef, ComponentType, FieldDef, FieldType, PageDef, TableDef, WorkflowDef,
+  ActionDef, ActionType, AppDefinition, ComponentDef, ComponentType, FieldDef, FieldType, PageDef, ProjectKind, TableDef, WorkflowDef,
 } from '../../core/models';
 import { describeCondition } from './condition-ops';
 
@@ -7,6 +7,26 @@ import { describeCondition } from './condition-ops';
 // Toda regra do editor fica aqui para ser testável sem DOM (ver editor-ops.spec.ts).
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
+
+export type EditorTab = 'design' | 'dados' | 'automacoes' | 'publicacao' | 'perguntas' | 'respostas' | 'compartilhar' | 'workflow' | 'execucoes' | 'segredos';
+
+/** Abas do editor por tipo. A aba ativa fica na URL (?aba=) para sobreviver a reload e link compartilhado. */
+export const EDITOR_TABS: Record<ProjectKind, { id: EditorTab; label: string }[]> = {
+  app: [{ id: 'design', label: 'Design' }, { id: 'dados', label: 'Dados' }, { id: 'automacoes', label: 'Automações' }, { id: 'publicacao', label: 'Publicação' }],
+  /** Formulário (DOCS/PRD-FORMS.md): perguntas, respostas e compartilhar; automações e publicação como nos apps. */
+  form: [
+    { id: 'perguntas', label: 'Perguntas' }, { id: 'respostas', label: 'Respostas' }, { id: 'compartilhar', label: 'Compartilhar' },
+    { id: 'automacoes', label: 'Automações' }, { id: 'publicacao', label: 'Publicação' },
+  ],
+  /** Workflow (DOCS/PRD-WORKFLOWS.md): passos, execuções, segredos do workspace e publicação. */
+  workflow: [{ id: 'workflow', label: 'Workflow' }, { id: 'execucoes', label: 'Execuções' }, { id: 'segredos', label: 'Segredos' }, { id: 'publicacao', label: 'Publicação' }],
+};
+
+/** Aba pedida na URL se existir para o tipo; senão a primeira do tipo. */
+export function editorTab(kind: ProjectKind, requested: string | null | undefined): EditorTab {
+  const tabs = EDITOR_TABS[kind] ?? EDITOR_TABS.app;
+  return tabs.find((t) => t.id === requested)?.id ?? tabs[0].id;
+}
 
 /** Tipos de propriedade â†’ controle no painel de propriedades. */
 export type PropKind = 'text' | 'textarea' | 'table' | 'field' | 'workflow' | 'anyWorkflow' | 'page' | 'select';

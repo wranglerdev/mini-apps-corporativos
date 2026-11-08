@@ -88,7 +88,7 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 | Biblioteca compartilhável | ✅ | Qualquer app pode ser marcado "template" e aparece para builders de todas as unidades |
 | Duplicar app (de outra unidade) | ✅ | Clona definição (sem dados) de app próprio, template ou do catálogo |
 | Versionamento com rollback | ✅ | Cada publicação gera versão imutável; rollback publica nova versão com o conteúdo antigo. Renomear campo migra os dados (rascunho ao salvar, produção ao publicar/rollback) |
-| Modo builder × modo usuário | ✅ | `/builder/*` (protegido por papel) × `/run/{slug}` (sem nada do editor) |
+| Modo builder × modo usuário | ✅ | `/builder/*` (protegido por papel) × `/run/{slug}` (sem nada do editor). Aba do editor na URL (`/builder/{id}?aba=execucoes`): reload e link abrem na mesma aba |
 | Catálogo interno | ✅ | `/catalog` lista apps publicados e liberados para o departamento |
 | Formulários | ✅ | Ver [PRD-FORMS.md](PRD-FORMS.md): perguntas com lógica de pulo, `/f/{slug}`, link público opcional, resumo e respostas |
 | Workflows | ✅ | Ver [PRD-WORKFLOWS.md](PRD-WORKFLOWS.md): projeto próprio, passos aninhados, fila com histórico em waterfall, tentativas, segredos, webhook e cron |
@@ -135,3 +135,4 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-07 | Workflows (MVP do PRD-WORKFLOWS): projeto próprio, passos aninhados, fila + worker, histórico em waterfall, tentativas, tempo limite, segredos, webhook e cron |
 | 2026-11-07 | Revisão dos PRDs: limite de 500 passos por execução de workflow; redirecionamento do formulário validado também no servidor |
 | 2026-11-07 | Condições com várias regras (E/OU) na visibilidade, nas automações e no "se" dos workflows |
+| 2026-11-08 | Aba ativa do editor persistida na URL (`?aba=`) para reload e compartilhamento |

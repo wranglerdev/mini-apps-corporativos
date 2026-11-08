@@ -23,3 +23,4 @@ ADR aceito não é reescrito; uma decisão nova o substitui (`Substituído por N
 | [0013](0013-formularios-implementados.md) | Formulários dentro do AppDefinition, com tipo derivado e link público limitado | feature | Aceito | 2026-11-07 |
 | [0014](0014-workflows-com-fila-e-historico.md) | Workflows como projeto, com fila no banco e histórico por passo | feature | Aceito | 2026-11-07 |
 | [0015](0015-condicoes-com-varias-regras-e-ou.md) | Condições com várias regras (E/OU), sem converter definições salvas | feature | Aceito | 2026-11-07 |
+| [0016](0016-aba-do-editor-na-url.md) | Aba do editor na URL (`?aba=`) para reload e link | ui | Aceito | 2026-11-08 |
