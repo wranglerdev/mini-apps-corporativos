@@ -132,6 +132,31 @@ public static partial class Variables
             }
     }
 
+    /// <summary>Problemas do esquema de entradas do gatilho "call" (nome, tipo, padrão, repetidas).</summary>
+    public static IEnumerable<string> InputProblems(List<VariableDef> inputs)
+    {
+        foreach (var v in inputs)
+        {
+            var label = $"Entrada '{v.Name}'";
+            if (!Name().IsMatch(v.Name)) yield return $"{label}: nome inválido (letras, números e _; começa com letra).";
+            if (!Types.Contains(v.Type)) yield return $"{label}: tipo inválido ({v.Type}).";
+            else if (DefaultProblem(v) is { } p) yield return $"{label}: padrão inválido, {p}.";
+        }
+        foreach (var dup in inputs.GroupBy(v => v.Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+            yield return $"Entrada repetida: {dup.Key}.";
+    }
+
+    /// <summary>Entradas do gatilho "call" no contexto como {{input.nome}}, convertidas ao tipo (vazia = padrão).</summary>
+    public static void InitInputs(IDictionary<string, string?> ctx, IEnumerable<VariableDef> inputs, JsonObject? given)
+    {
+        foreach (var v in inputs)
+        {
+            var value = given?.FirstOrDefault(kv => string.Equals(kv.Key, v.Name, StringComparison.OrdinalIgnoreCase)).Value;
+            try { Set(ctx, new VariableDef { Name = $"input.{v.Name}", Type = v.Type, Default = v.Default }, value?.DeepClone()); }
+            catch (VariableException ex) { throw new VariableException($"entrada '{v.Name}': {ex.Message}"); }
+        }
+    }
+
     /// <summary>
     /// Roda as operações do Transformar em ordem (uma lê o que a anterior gravou) e devolve {variável: valor} gravado.
     /// `input` recebe o que foi usado em cada operação (histórico). Falha → <see cref="VariableException"/> com a operação e a variável.

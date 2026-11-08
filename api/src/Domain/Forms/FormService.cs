@@ -37,7 +37,7 @@ public class FormService(
         var (scope, who) = await OpenPublishedAsync(slug);
         var form = scope.Definition.Form!;
         // Campo escondido preenchido = robô: finge sucesso e não grava nada.
-        if (!string.IsNullOrEmpty(honeypot)) return End(form, null);
+        if (!string.IsNullOrEmpty(honeypot)) return End(form, null, null);
         return await SaveAsync(scope, answers, who);
     }
 
@@ -86,7 +86,7 @@ public class FormService(
         if (errors.Count > 0) throw new ValidationException(string.Join(" ", errors));
 
         var result = await recordService.InsertFormResponseAsync(scope, table, data, who);
-        return End(form, result.Record.Id);
+        return End(form, result.Record.Id, await RedirectAsync(scope, data, who));
     }
 
     /// <summary>Acesso: quem pode usar o app publicado (login + departamento) ou qualquer um, se o link for público e a empresa permitir.</summary>
@@ -129,7 +129,29 @@ public class FormService(
         return new FormView(scope.App.Id, scope.App.Name, scope.App.Slug, scope.Env, version, form, table.Fields.Where(f => ids.Contains(f.Id)).ToList());
     }
 
-    private static FormSubmitResult End(FormDef form, Guid? recordId) => new(recordId, form.EndTitle, form.EndText, form.RedirectUrl);
+    private static FormSubmitResult End(FormDef form, Guid? recordId, string? redirect) => new(recordId, form.EndTitle, form.EndText, redirect);
+
+    /// <summary>
+    /// Para onde ir depois de enviar: a primeira regra que bater (condição sobre as respostas do caminho) ou o padrão.
+    /// Projeto vira o endereço dele (mesmo ambiente); link aceita {{respostas}} e é conferido depois de montado.
+    /// </summary>
+    private async Task<string?> RedirectAsync(AppScope scope, Dictionary<string, string?> answers, CurrentUser who)
+    {
+        var form = scope.Definition.Form!;
+        var ctx = new Dictionary<string, string?>(answers, StringComparer.OrdinalIgnoreCase) { ["user.email"] = who.Email, ["user.name"] = who.Name };
+        var rule = form.RedirectRules.FirstOrDefault(r => Conditions.Evaluate(r.Condition, ctx));
+        var (projectId, url) = rule is not null ? (rule.ProjectId, rule.Url) : (form.RedirectProjectId, form.RedirectUrl);
+        if (!string.IsNullOrWhiteSpace(projectId))
+        {
+            var target = Guid.TryParse(projectId, out var id) ? await apps.GetAsync(id) : null;
+            if (target is null || target.WorkspaceId != scope.App.WorkspaceId) return null; // projeto removido: fica na tela final
+            try { return Links.ProjectPath(target, scope.Env); }
+            catch (ValidationException) { return null; } // ainda não publicado
+        }
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        var rendered = Links.RenderUrl(url, ctx);
+        return Links.IsSafe(rendered) ? rendered : null;
+    }
 
     private static bool IsEmail(string value) => MailAddress.TryCreate(value, out var a) && a.Address == value && value.Contains('.');
 }

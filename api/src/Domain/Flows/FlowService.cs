@@ -69,16 +69,8 @@ public class FlowService(IAppRepository apps, AppService appService, IRunStore r
     }
 
     /// <summary>Coloca na fila. Usado aqui, pelo agendador e pelo webhook.</summary>
-    public async Task<WorkflowRun> EnqueueAsync(App app, string env, WorkflowDef wf, string trigger, JsonObject data, string requestedBy)
-    {
-        var run = new WorkflowRun
-        {
-            AppId = app.Id, Env = env, WorkflowId = wf.Id, Number = await runs.NextNumberAsync(app.Id),
-            Version = env == Env.Prod ? app.PublishedVersion : null, Trigger = trigger, TriggerData = data.ToJsonString(), RequestedBy = requestedBy
-        };
-        await runs.AddAsync(run);
-        return run;
-    }
+    public Task<WorkflowRun> EnqueueAsync(App app, string env, WorkflowDef wf, string trigger, JsonObject data, string requestedBy) =>
+        FlowQueue.EnqueueAsync(runs, app, env, wf, trigger, data, requestedBy);
 
     /// <summary>Só quem gerencia o projeto; só projetos de workflow; produção exige publicação.</summary>
     private async Task<(App App, AppDefinition Def)> LoadAsync(Guid appId, string env)
@@ -89,6 +81,21 @@ public class FlowService(IAppRepository apps, AppService appService, IRunStore r
         if (def is null) throw new ValidationException("Publique o workflow antes de executar em produção.");
         if (!def.Automation) throw new ValidationException("Este projeto não é um workflow.");
         return (app, def);
+    }
+}
+
+/// <summary>Entrada na fila dos workflows (usada pelo FlowService e pela ação "Iniciar workflow" das automações).</summary>
+public static class FlowQueue
+{
+    public static async Task<WorkflowRun> EnqueueAsync(IRunStore runs, App app, string env, WorkflowDef wf, string trigger, JsonObject data, string requestedBy)
+    {
+        var run = new WorkflowRun
+        {
+            AppId = app.Id, Env = env, WorkflowId = wf.Id, Number = await runs.NextNumberAsync(app.Id),
+            Version = env == Env.Prod ? app.PublishedVersion : null, Trigger = trigger, TriggerData = data.ToJsonString(), RequestedBy = requestedBy
+        };
+        await runs.AddAsync(run);
+        return run;
     }
 }
 

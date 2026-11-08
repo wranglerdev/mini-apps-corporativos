@@ -53,6 +53,11 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
             var ctx = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             JsonVars.Put(ctx, "trigger", JsonVars.Parse(run.TriggerData));
             foreach (var (name, value) in values) ctx[$"secrets.{name}"] = value;
+            if (wf.Trigger.Type == Triggers.Call)
+            {
+                try { Variables.InitInputs(ctx, wf.Trigger.Inputs, (JsonVars.Parse(run.TriggerData) as JsonObject)?["input"] as JsonObject); }
+                catch (VariableException ex) { throw new StepFailed($"Gatilho: {ex.Message}."); }
+            }
             Variables.Init(ctx, wf.Variables);
             var exec = new Execution(run, scope, ctx, [.. values.Values.Where(v => v.Length >= 4)], DateTime.UtcNow + RunTimeout, ct, wf.Variables);
 

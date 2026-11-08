@@ -84,8 +84,9 @@ public static partial class FlowRules
         var errors = new List<string>();
         if (def.Workflows.Count != 1) return ["O projeto de workflow tem exatamente um workflow."];
         var wf = def.Workflows[0];
-        if (wf.Trigger.Type is not (Triggers.Manual or Triggers.Webhook or Triggers.Schedule))
-            errors.Add("Gatilho de workflow: manual, agendado ou webhook.");
+        if (wf.Trigger.Type is not (Triggers.Manual or Triggers.Webhook or Triggers.Schedule or Triggers.Call))
+            errors.Add("Gatilho de workflow: manual, agendado, webhook ou chamado por outro projeto.");
+        if (wf.Trigger.Type == Triggers.Call) errors.AddRange(Variables.InputProblems(wf.Trigger.Inputs));
         if (wf.Trigger.Type == Triggers.Webhook && string.IsNullOrWhiteSpace(wf.Trigger.WebhookKey))
             errors.Add("Gatilho webhook: gere a chave.");
 
@@ -94,7 +95,7 @@ public static partial class FlowRules
         {
             var label = s.Id is { Length: > 0 } ? $"Passo '{s.Id}'" : "Passo";
             if (string.IsNullOrWhiteSpace(s.Id) || !StepId().IsMatch(s.Id)) errors.Add($"{label}: id inválido (letras, números e _; começa com letra).");
-            if (s.Type is Actions.Navigate or Actions.RunWorkflow) errors.Add($"{label}: ação não disponível em workflows.");
+            if (s.Type is Actions.Navigate or Actions.RunWorkflow or Actions.StartFlow or Actions.OpenLink) errors.Add($"{label}: ação não disponível em workflows.");
             if (s.Type == Actions.If && (s.Condition is null || s.Condition.ActiveRules().Count == 0)) errors.Add($"{label}: informe a condição.");
             if (s.Type == Actions.ForEach && string.IsNullOrWhiteSpace(s.Params.GetValueOrDefault("list"))) errors.Add($"{label}: informe a lista.");
             if (s.Type == Actions.Wait && !(int.TryParse(s.Params.GetValueOrDefault("seconds"), out var w) && w is > 0 and <= MaxWaitSeconds))

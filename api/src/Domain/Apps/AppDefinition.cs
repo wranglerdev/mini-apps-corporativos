@@ -201,6 +201,8 @@ public static class Triggers
     public const string Manual = "manual";
     /// <summary>Só em projetos de workflow: POST /api/hooks/wf/{app} com X-Webhook-Key; o corpo JSON vira {{trigger.*}}.</summary>
     public const string Webhook = "webhook";
+    /// <summary>Só em projetos de workflow: iniciado por um mini app ou formulário (ação "Iniciar workflow"), com TriggerDef.Inputs.</summary>
+    public const string Call = "call";
 }
 
 public static class Actions
@@ -213,6 +215,10 @@ public static class Actions
     public const string RequestApproval = "requestApproval";
     /// <summary>Executa outro workflow (Params.workflowId) com o contexto atual.</summary>
     public const string RunWorkflow = "runWorkflow";
+    /// <summary>Enfileira um projeto de workflow do mesmo workspace (Params.flowId, gatilho "call"); Values = entradas dele.</summary>
+    public const string StartFlow = "startFlow";
+    /// <summary>Abre um formulário/mini app do workspace (Params.projectId) ou um link (Params.url); Values = pré-preenchimento.</summary>
+    public const string OpenLink = "openLink";
 
     // Passos de controle (projetos de workflow; ver FlowRunner)
     /// <summary>Se/senão: Condition; Steps (então) e Else (senão).</summary>
@@ -242,6 +248,8 @@ public class TriggerDef
     public string? Cron { get; set; }
     /// <summary>Gatilho webhook: chave exigida em X-Webhook-Key. Nunca enviada a quem não gerencia.</summary>
     public string? WebhookKey { get; set; }
+    /// <summary>Gatilho "call": esquema das entradas (nome, tipo, padrão). Chegam como {{input.nome}}, já no tipo.</summary>
+    public List<VariableDef> Inputs { get; set; } = [];
 }
 
 /// <summary>Cálculo da próxima execução de um gatilho agendado.</summary>

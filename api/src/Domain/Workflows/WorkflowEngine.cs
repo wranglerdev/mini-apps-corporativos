@@ -8,11 +8,15 @@ public class WorkflowResult
 {
     /// <summary>Id da página para onde o cliente deve navegar (ação "navigate").</summary>
     public string? NavigateTo { get; set; }
+    /// <summary>Endereço a abrir (ação "openLink"): caminho do site ou http(s).</summary>
+    public string? OpenUrl { get; set; }
+    public bool OpenInNewTab { get; set; }
     public List<string> Log { get; set; } = [];
 
     public void Merge(WorkflowResult other)
     {
         NavigateTo = other.NavigateTo ?? NavigateTo;
+        if (other.OpenUrl is not null) (OpenUrl, OpenInNewTab) = (other.OpenUrl, other.OpenInNewTab);
         Log.AddRange(other.Log);
     }
 }
@@ -63,7 +67,8 @@ public static class Conditions
 /// Encadeamento: createRecord/updateRecord disparam os workflows de registro da tabela afetada e runWorkflow executa
 /// outro workflow. Cada passo da cadeia aumenta `depth`; acima de MaxChainDepth a cadeia para (protege contra ciclos).
 /// </summary>
-public class WorkflowEngine(IRecordRepository records, IApprovalRepository approvals, IEmailSender email, IHttpConnector http, IAuditLog audit)
+public class WorkflowEngine(IRecordRepository records, IApprovalRepository approvals, IEmailSender email, IHttpConnector http, IAuditLog audit,
+    IAppRepository apps, IRunStore runs)
 {
     public const int MaxChainDepth = 5;
 
@@ -198,6 +203,35 @@ public class WorkflowEngine(IRecordRepository records, IApprovalRepository appro
                 result.Log.Add($"Aprovação solicitada a {approver}.");
                 break;
             }
+            case Actions.StartFlow:
+            {
+                var target = await ProjectAsync(scope, P("flowId"));
+                var flowDef = (scope.Env == Env.Prod ? target.Published : target.Draft)
+                    ?? throw new ValidationException($"Publique o workflow '{target.Name}' antes de usar em produção.");
+                var flow = flowDef.Automation ? flowDef.Workflows[0] : throw new ValidationException($"'{target.Name}' não é um workflow.");
+                if (flow.Trigger.Type != Triggers.Call) throw new ValidationException($"O workflow '{target.Name}' precisa do gatilho \"Chamado por outro projeto\".");
+                var input = new JsonObject(action.Values.Select(kv => KeyValuePair.Create(kv.Key, JsonVars.Parse(Template.Render(kv.Value, ctx)))));
+                var data = new JsonObject
+                {
+                    ["trigger"] = Triggers.Call, ["source"] = scope.App.Name, ["sourceId"] = scope.App.Id.ToString(), ["user"] = user.Email,
+                    ["now"] = ScheduleVars.Now(DateTime.Now), ["today"] = ScheduleVars.Today(DateTime.Now), ["input"] = input
+                };
+                var run = await FlowQueue.EnqueueAsync(runs, target, scope.Env, flow, Triggers.Call, data, user.Email);
+                output["runId"] = run.Id.ToString();
+                output["number"] = run.Number;
+                result.Log.Add($"Workflow '{target.Name}' iniciado (#{run.Number}).");
+                break;
+            }
+            case Actions.OpenLink:
+            {
+                var projectId = P("projectId");
+                var url = projectId.Length > 0 ? Links.ProjectPath(await ProjectAsync(scope, projectId), scope.Env) : Links.RenderUrl(action.Params.GetValueOrDefault("url"), ctx);
+                if (!Links.IsSafe(url)) throw new ValidationException("Link inválido: use http(s) ou um caminho do site (/...).");
+                result.OpenUrl = Links.WithQuery(url, Values());
+                result.OpenInNewTab = P("newTab") == "true";
+                output["url"] = result.OpenUrl;
+                break;
+            }
             case Actions.RunWorkflow:
                 result.Merge(await RunAsync(scope, scope.Definition.Workflow(P("workflowId")), ctx, user, depth + 1));
                 break;
@@ -205,6 +239,14 @@ public class WorkflowEngine(IRecordRepository records, IApprovalRepository appro
                 throw new ValidationException($"Ação desconhecida: {action.Type}.");
         }
         return output;
+    }
+
+    /// <summary>Outro projeto do mesmo workspace (as ações entre projetos não atravessam workspaces).</summary>
+    private async Task<App> ProjectAsync(AppScope scope, string id)
+    {
+        var target = Guid.TryParse(id, out var g) ? await apps.GetAsync(g) : null;
+        if (target is null || target.WorkspaceId != scope.App.WorkspaceId) throw new ValidationException("Projeto não encontrado neste workspace.");
+        return target;
     }
 
     private async Task<DataRecord> LoadRecordAsync(AppScope scope, string tableId, string recordId)

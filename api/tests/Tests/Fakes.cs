@@ -216,7 +216,7 @@ public class World
     {
         Workspaces.Items.AddRange([Rh, Ti]);
         AppService = new AppService(Apps, Workspaces, Records, Users, Audit);
-        Engine = new WorkflowEngine(Records, ApprovalsRepo, Email, Http, Audit);
+        Engine = new WorkflowEngine(Records, ApprovalsRepo, Email, Http, Audit, Apps, RunStore);
         RecordService = new RecordService(Records, AppService, Engine, new Infra.XlsxSpreadsheet(), new Infra.PdfReportWriter(), Users, Audit);
         WorkflowService = new WorkflowService(AppService, Engine, Users);
         ApprovalService = new ApprovalService(ApprovalsRepo, Records, AppService, Engine, Email, Users, Audit);

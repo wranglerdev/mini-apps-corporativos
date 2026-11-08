@@ -13,10 +13,22 @@ public class FormDef
     public string WelcomeText { get; set; } = "";
     public string EndTitle { get; set; } = "Resposta enviada";
     public string EndText { get; set; } = "Obrigado!";
-    /// <summary>Opcional: para onde ir depois de enviar.</summary>
+    /// <summary>Opcional: para onde ir depois de enviar (http(s) ou /caminho; aceita {{respostas}}).</summary>
     public string? RedirectUrl { get; set; }
+    /// <summary>Opcional: formulário ou mini app do workspace para onde ir depois de enviar (no lugar de RedirectUrl).</summary>
+    public string? RedirectProjectId { get; set; }
+    /// <summary>Redirecionamento condicional: a primeira regra cuja condição (sobre as respostas) bater decide; senão, o padrão acima.</summary>
+    public List<RedirectRule> RedirectRules { get; set; } = [];
     /// <summary>Link público: qualquer pessoa com o link responde, sem login. Vale para a versão publicada.</summary>
     public bool Public { get; set; }
+}
+
+/// <summary>Regra de redirecionamento: condição sobre as respostas e destino (projeto do workspace ou link).</summary>
+public class RedirectRule
+{
+    public ConditionDef Condition { get; set; } = new();
+    public string? Url { get; set; }
+    public string? ProjectId { get; set; }
 }
 
 public class QuestionDef
@@ -112,8 +124,15 @@ public static class FormFlow
         if (form.Questions.Count == 0) errors.Add("O formulário precisa de ao menos uma pergunta.");
         if (form.Questions.GroupBy(q => q.Id).Any(g => g.Count() > 1)) errors.Add("Perguntas com id repetido.");
         if (form.Questions.GroupBy(q => q.FieldId).Any(g => g.Count() > 1)) errors.Add("Duas perguntas gravam no mesmo campo.");
-        if (!string.IsNullOrWhiteSpace(form.RedirectUrl) && !IsWebUrl(form.RedirectUrl))
-            errors.Add("O redirecionamento da tela final precisa ser um endereço http ou https.");
+        if (!string.IsNullOrWhiteSpace(form.RedirectUrl) && !Links.IsSafeTemplate(form.RedirectUrl))
+            errors.Add("O redirecionamento da tela final precisa ser um endereço http(s) ou um caminho do site (/...).");
+        for (var i = 0; i < form.RedirectRules.Count; i++)
+        {
+            var r = form.RedirectRules[i];
+            if (r.Condition.ActiveRules().Count == 0) errors.Add($"Redirecionamento {i + 1}: informe a condição.");
+            if (string.IsNullOrWhiteSpace(r.ProjectId) == string.IsNullOrWhiteSpace(r.Url)) errors.Add($"Redirecionamento {i + 1}: escolha um projeto ou um link.");
+            else if (!string.IsNullOrWhiteSpace(r.Url) && !Links.IsSafeTemplate(r.Url)) errors.Add($"Redirecionamento {i + 1}: link precisa ser http(s) ou /caminho.");
+        }
 
         for (var i = 0; i < form.Questions.Count; i++)
         {
@@ -136,6 +155,4 @@ public static class FormFlow
     }
 
     /// <summary>Mesma regra do respondente (form-runner.ts): só http(s), nada de javascript:, data: etc.</summary>
-    private static bool IsWebUrl(string url) =>
-        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }
