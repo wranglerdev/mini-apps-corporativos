@@ -1,4 +1,4 @@
-import { ActionDef, AppDefinition, VariableDef, VariableType, WorkflowDef } from '../../core/models';
+import { ActionDef, AppDefinition, Props, VariableDef, VariableType, WorkflowDef } from '../../core/models';
 import { Suggestion } from '../../ui/completion';
 import { flatten } from './editor-ops';
 
@@ -233,11 +233,55 @@ export function renameVariable(wf: WorkflowDef, oldName: string, newName: string
   const v = (wf.variables ?? []).find((x) => x.name === oldName);
   if (!v) return;
   v.name = newName;
-  const esc = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  renameRef(wf, oldName, newName);
+  for (const s of allActions(wf.actions)) for (const o of s.ops ?? []) if (o.target === oldName) o.target = newName;
+}
+
+/** Troca a referência `antigo` por `novo` em {{antigo}}, {{antigo.…}} e nos caminhos sem chaves (condição, apelido). */
+function renameRef(wf: WorkflowDef, oldPath: string, newPath: string) {
+  const esc = oldPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const inTemplate = new RegExp(`\\{\\{(\\s*)${esc}(?=[.\\s}])`, 'g');
   const asPath = new RegExp(`^${esc}(?=\\.|$)`);
-  rewriteRefs(wf, (t) => t.replace(inTemplate, `{{$1${newName}`), (t) => t.replace(asPath, newName));
-  for (const s of allActions(wf.actions)) for (const o of s.ops ?? []) if (o.target === oldName) o.target = newName;
+  rewriteRefs(wf, (t) => t.replace(inTemplate, `{{$1${newPath}`), (t) => t.replace(asPath, newPath));
+}
+
+/** Renomeia uma entrada do gatilho "call" e atualiza {{input.antigo}} no workflow. */
+export function renameInput(wf: WorkflowDef, oldName: string, newName: string) {
+  const v = (wf.trigger.inputs ?? []).find((x) => x.name === oldName);
+  if (!v) return;
+  v.name = newName;
+  if (oldName) renameRef(wf, `input.${oldName}`, `input.${newName}`);
+}
+
+/** Problema do esquema de entradas (null = ok): nome, repetida e padrão no tipo. */
+export function inputsProblem(inputs: VariableDef[]): string | null {
+  for (const v of inputs) {
+    const p = variableProblem({ variables: inputs } as WorkflowDef, v);
+    if (p && !p.startsWith('Nome reservado')) return `Entrada "${v.name}": ${p}`;
+  }
+  return null;
+}
+
+/** Nomes que um projeto aceita pré-preenchidos pela URL: colunas das perguntas do formulário ou inputs do mini app. */
+export function prefillNames(def: AppDefinition): string[] {
+  if (def.form) {
+    const table = def.tables.find((t) => t.id === def.form!.tableId);
+    return def.form.questions.map((q) => table?.fields.find((f) => f.id === q.fieldId)?.name).filter((n): n is string => !!n);
+  }
+  return pageInputs(def).map((i) => i.name);
+}
+
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** Liga cada entrada ao valor de mesmo nome (sem acento, maiúscula ou espaço): "nome" ← {{Nome}}. Não troca o que já tem valor. */
+export function autoMap(targets: string[], available: string[], current: Props): Props {
+  const out: Props = { ...current };
+  for (const t of targets) {
+    if (out[t]) continue;
+    const match = available.find((a) => fold(a) === fold(t));
+    if (match) out[t] = `{{${match}}}`;
+  }
+  return out;
 }
 
 /** Remove a variável e as operações que gravavam nela (referências {{nome}} em texto passam a ficar vazias). */

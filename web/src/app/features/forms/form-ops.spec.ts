@@ -1,5 +1,5 @@
 import { AppDefinition } from '../../core/models';
-import { addQuestion, answerVarsAt, formOf } from './form-ops';
+import { addQuestion, addRedirectRule, answerVarsAt, formOf, redirectMode, setRedirectMode } from './form-ops';
 
 // Jornada 6 (front): pergunta cita respostas anteriores ({{coluna}}), só as que já existem naquele ponto.
 describe('Formulário: respostas anteriores', () => {
@@ -21,5 +21,18 @@ describe('Formulário: respostas anteriores', () => {
     expect(names(q3.id)).toEqual([n1, n2]);
     expect(names(null)).toEqual([n1, n2, n3]);
     expect(answerVarsAt(d, q2.id)[0].about).toContain('pulou');
+  });
+
+  it('destino depois de enviar: ficar, link ou projeto; regra nasce sobre a 1ª pergunta', () => {
+    const d = blank();
+    addQuestion(d, 'short');
+    expect(redirectMode(formOf(d))).toBe('none');
+    setRedirectMode(d, 'project');
+    expect(redirectMode(formOf(d))).toBe('project');
+    expect(formOf(d).redirectUrl).toBeNull();
+    setRedirectMode(d, 'url');
+    expect([formOf(d).redirectUrl, formOf(d).redirectProjectId]).toEqual(['', null]);
+    addRedirectRule(d);
+    expect(formOf(d).redirectRules![0].condition.field).toBe(d.tables[0].fields[0].name);
   });
 });

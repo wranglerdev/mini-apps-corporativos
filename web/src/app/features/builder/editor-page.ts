@@ -58,7 +58,7 @@ const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
 
         @switch (tab()) {
           @case ('design') { <app-design-tab [def]="def()" (defChange)="change($event)" /> }
-          @case ('perguntas') { <app-form-tab [def]="def()" (defChange)="change($event)" /> }
+          @case ('perguntas') { <app-form-tab [appId]="a.id" [workspaceId]="a.workspaceId" [def]="def()" (defChange)="change($event)" /> }
           @case ('workflow') { <app-flow-tab [def]="def()" (defChange)="change($event)" [appId]="a.id" [save]="saveForTest" /> }
           @case ('execucoes') { <div class="tool-scroll"><app-runs-tab [appId]="a.id" [published]="a.published" /></div> }
           @case ('segredos') { <div class="tool-scroll"><app-secrets-tab [workspaceId]="a.workspaceId" /></div> }
@@ -71,7 +71,7 @@ const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
                 (departmentsChange)="departments.set($event); dirty.set(true)" (openAutomations)="setTab('automacoes')" />
             </div>
           }
-          @case ('automacoes') { <app-workflows-tab [appId]="a.id" [def]="def()" (defChange)="change($event)" /> }
+          @case ('automacoes') { <app-workflows-tab [appId]="a.id" [workspaceId]="a.workspaceId" [def]="def()" (defChange)="change($event)" /> }
           @case ('dados') {
             <div class="tool-scroll"><app-data-tab [appId]="a.id" [def]="def()" (defChange)="change($event)" (pageGenerated)="setTab('design')" /></div>
           }

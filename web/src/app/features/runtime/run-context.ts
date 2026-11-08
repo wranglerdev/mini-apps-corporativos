@@ -4,6 +4,7 @@ import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth/auth';
 import { AppDefinition, ComponentDef, Env, FieldDef, PagedRecords, Props, WorkflowResult } from '../../core/models';
 import { evaluate, visibilityVars } from './visibility';
+import { isInternal, isSafeLink } from './links';
 
 /** Estado de execução de um app (provido por AppRunner). Blocos de dados injetam este contexto. */
 @Injectable()
@@ -41,6 +42,15 @@ export class RunContext {
     this.notice.set(text ? { text, error: false } : null);
     this.refresh.update((v) => v + 1);
     if (result.navigateTo) this.navigate(result.navigateTo);
+    if (result.openUrl) this.open(result.openUrl, !!result.openInNewTab);
+  }
+
+  /** Outro projeto (caminho do site, pelo roteador) ou link http(s); qualquer outra coisa é ignorada. */
+  open(url: string, newTab: boolean) {
+    if (!isSafeLink(url)) return;
+    if (newTab) window.open(url, '_blank', 'noopener');
+    else if (isInternal(url)) this.router.navigateByUrl(url);
+    else window.location.assign(url);
   }
 
   fail(e: unknown) {

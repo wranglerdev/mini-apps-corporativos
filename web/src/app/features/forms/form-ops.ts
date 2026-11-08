@@ -27,6 +27,24 @@ function optionsFor(kind: QuestionKind, current: string[]): string[] {
 }
 
 /** Nova pergunta (e o campo dela) na posição `index` (padrão: no fim). */
+export type RedirectMode = 'none' | 'url' | 'project';
+
+/** Destino padrão da tela final: nenhum, link (aceita {{respostas}}) ou outro projeto do workspace. */
+export const redirectMode = (f: FormDef): RedirectMode => (f.redirectProjectId != null ? 'project' : f.redirectUrl != null ? 'url' : 'none');
+
+export function setRedirectMode(def: AppDefinition, mode: RedirectMode) {
+  const f = formOf(def);
+  f.redirectUrl = mode === 'url' ? (f.redirectUrl ?? '') : null;
+  f.redirectProjectId = mode === 'project' ? (f.redirectProjectId ?? '') : null;
+}
+
+/** Nova regra de redirecionamento (condição sobre a 1ª pergunta; destino: projeto). */
+export function addRedirectRule(def: AppDefinition) {
+  const f = formOf(def);
+  const first = f.questions[0] ? fieldOf(def, f.questions[0])?.name ?? '' : '';
+  (f.redirectRules ??= []).push({ condition: { field: first, op: 'eq', value: '' }, projectId: '', url: null });
+}
+
 /**
  * Respostas que existem na pergunta (`questionId`; null = tela final): só as das perguntas anteriores. Usadas como
  * {{coluna}} no título, na descrição e na tela final (o runner troca pelo que a pessoa respondeu).

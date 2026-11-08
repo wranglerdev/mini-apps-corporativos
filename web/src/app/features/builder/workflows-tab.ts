@@ -1,6 +1,6 @@
-import { Component, computed, inject, input, model, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, model, signal, untracked } from '@angular/core';
 import { Api, errorMessage } from '../../core/api';
-import { ActionDef, ActionType, AppDefinition, ConditionDef, Frequency, TransformOp, TriggerType, VariableType, WorkflowDef } from '../../core/models';
+import { ActionDef, ActionType, AppDefinition, AppSummary, ConditionDef, Frequency, TransformOp, TriggerType, VariableType, WorkflowDef } from '../../core/models';
 import { LAYOUT } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import {
@@ -12,7 +12,7 @@ import { hasCondition, orNull } from './condition-ops';
 import { TransformOpsEditor } from './transform-ops-editor';
 import { VarEditor } from './var-editor';
 import { VarPanel } from './var-panel';
-import { addVariable, automationVarsAt, pageInputs, removeVariable, renameVariable, variableProblem } from './variable-ops';
+import { VARIABLE_TYPES, addVariable, autoMap, automationVarsAt, pageInputs, prefillNames, removeVariable, renameVariable, variableProblem } from './variable-ops';
 
 /** Nó aberto à direita: gatilho, condição, passo (índice) ou variável ('var:nome'). */
 type Node = 'trigger' | 'condition' | number | `var:${string}`;
@@ -174,6 +174,35 @@ type Node = 'trigger' | 'condition' | number | `var:${string}`;
                     <app-transform-ops-editor [ops]="a.ops ?? []" [variables]="w.variables ?? []" [suggestions]="vars()" [inputPlaceholder]="responseVar"
                       (opsChange)="setOps(i, $event)" (createVariable)="newVariable()" />
                   }
+                  @if (a.type === 'startFlow') {
+                    <ui-select label="Workflow" [options]="flowOptions()" [value]="a.params['flowId'] ?? ''" placeholder="Escolha…" (valueChange)="setTarget(i, 'flowId', $event)" />
+                    @if (target(); as t) {
+                      @if (t.problem) { <p class="runner__problem small">{{ t.problem }}</p> }
+                      @for (n of t.fields; track n.name) {
+                        <ui-input [label]="n.label" [mono]="true" [value]="a.values[n.name] ?? ''" [suggestions]="vars()" (valueChange)="setValue(i, n.name, $event)" />
+                      }
+                    }
+                    <p class="panel__hint">Roda em segundo plano no mesmo ambiente: o teste chama o rascunho do workflow; produção, a versão publicada. Só aparecem workflows deste workspace.</p>
+                  }
+                  @if (a.type === 'openLink') {
+                    <ui-segmented label="Destino" [columns]="2" [options]="linkModes" [value]="a.params['url'] != null ? 'url' : 'project'" (valueChange)="setLinkMode(i, $event)" />
+                    @if (a.params['url'] != null) {
+                      <ui-input label="Link" [mono]="true" placeholder="https://intranet.corp.local/pedido?id={{ lb }}id{{ rb }}" [value]="a.params['url']"
+                        [suggestions]="vars()" (valueChange)="setParam(i, 'url', $event)" />
+                      <p class="panel__hint">http(s) ou um caminho do site (/...). Os valores de {{ lb }}variáveis{{ rb }} entram escapados.</p>
+                    } @else {
+                      <ui-select label="Projeto" [options]="linkOptions()" [value]="a.params['projectId'] ?? ''" placeholder="Escolha…" (valueChange)="setTarget(i, 'projectId', $event)" />
+                      @if (target(); as t) {
+                        @if (t.problem) { <p class="runner__problem small">{{ t.problem }}</p> }
+                        @if (t.fields.length) { <p class="panel__hint">Já chega preenchido (opcional):</p> }
+                        @for (n of t.fields; track n.name) {
+                          <ui-input [label]="n.label" [value]="a.values[n.name] ?? ''" [suggestions]="vars()" (valueChange)="setValue(i, n.name, $event)" />
+                        }
+                      }
+                    }
+                    <ui-checkbox label="Abrir em nova aba" [checked]="a.params['newTab'] === 'true'" (checkedChange)="setParam(i, 'newTab', $event ? 'true' : '')" />
+                    @if (w.trigger.type !== 'click') { <p class="runner__problem small">Só tem efeito em automações de clique: precisa de alguém com o app aberto.</p> }
+                  }
                   @if (a.type === 'callApi') {
                     <button uiButton variant="ghost" (click)="saveResponse()"><ui-icon name="plus" /> Guardar resposta em variável</button>
                   }
@@ -200,6 +229,8 @@ type Node = 'trigger' | 'condition' | number | `var:${string}`;
 export class WorkflowsTab {
   readonly def = model.required<AppDefinition>();
   readonly appId = input.required<string>();
+  /** Workspace do projeto: as ações entre projetos só listam projetos dele. */
+  readonly workspaceId = input.required<string>();
   private readonly api = inject(Api);
 
   protected readonly frequencies = [
@@ -245,7 +276,7 @@ export class WorkflowsTab {
   protected readonly actionOptions = ACTION_TYPES.map((t) => ({ value: t, label: ACTIONS[t].label }));
   /** Manual e webhook (com chave própria) são só de projetos de workflow. */
   protected readonly triggers = (Object.keys(TRIGGER_LABELS) as TriggerType[])
-    .filter((t) => t !== 'manual' && t !== 'webhook').map((t) => ({ value: t, label: TRIGGER_LABELS[t] }));
+    .filter((t) => t !== 'manual' && t !== 'webhook' && t !== 'call').map((t) => ({ value: t, label: TRIGGER_LABELS[t] }));
   protected readonly hasCondition = hasCondition;
   protected readonly wfId = signal<string | null>(null);
   protected readonly wf = computed<WorkflowDef | null>(() => {
@@ -254,7 +285,75 @@ export class WorkflowsTab {
   });
   protected readonly tableOptions = computed(() => this.def().tables.map((t) => ({ value: t.id, label: t.name })));
 
+  // ---------- Outros projetos do workspace (Iniciar workflow / Abrir projeto ou link) ----------
+  protected readonly lb = '{{';
+  protected readonly rb = '}}';
+  protected readonly linkModes = [{ value: 'project', label: 'Projeto' }, { value: 'url', label: 'Link' }];
+  private readonly projects = signal<AppSummary[]>([]);
+  protected readonly flowOptions = computed(() => this.projects().filter((p) => p.kind === 'workflow').map((p) => ({ value: p.id, label: p.name + (p.publishedVersion ? '' : ' (rascunho)') })));
+  protected readonly linkOptions = computed(() => this.projects().filter((p) => p.kind !== 'workflow')
+    .map((p) => ({ value: p.id, label: `${p.name} · ${p.kind === 'form' ? 'Formulário' : 'Mini app'}${p.publishedVersion ? '' : ' (rascunho)'}` })));
+  /** Campos do projeto escolhido no passo aberto: entradas do workflow ou o que o formulário/mini app aceita pré-preenchido. */
+  protected readonly target = signal<{ id: string; fields: { name: string; label: string }[]; problem: string | null } | null>(null);
+  private readonly targetId = computed(() => {
+    const a = this.wf()?.actions[this.stepIndex()];
+    return a?.type === 'startFlow' ? (a.params['flowId'] ?? '') : a?.type === 'openLink' ? (a.params['projectId'] ?? '') : '';
+  });
+
+  constructor() {
+    this.api.apps().then((list) => this.projects.set(list.filter((p) => p.workspaceId === this.workspaceId() && p.id !== this.appId())), () => undefined);
+    effect(() => {
+      const id = this.targetId();
+      untracked(() => this.loadTarget(id));
+    });
+  }
+
+  private async loadTarget(id: string) {
+    if (!id) return this.target.set(null);
+    try {
+      const app = await this.api.app(id);
+      const def = app.published ?? app.draft;
+      if (def.automation) {
+        const t = def.workflows[0]?.trigger;
+        const fields = (t?.inputs ?? []).map((v) => ({ name: v.name, label: `${v.name} (${VARIABLE_TYPES[v.type]?.label ?? v.type})` }));
+        const problem = t?.type !== 'call' ? 'Esse workflow precisa do gatilho "Chamado por mini app ou formulário".'
+          : app.published ? null : 'Workflow ainda não publicado: só funciona no teste (rascunho).';
+        this.target.set({ id, fields, problem });
+      } else {
+        this.target.set({ id, fields: prefillNames(def).map((n) => ({ name: n, label: n })), problem: app.published ? null : 'Ainda não publicado: só abre no teste (rascunho).' });
+      }
+    } catch {
+      this.target.set({ id, fields: [], problem: 'Você não gerencia esse projeto: não dá para listar os campos dele.' });
+    }
+  }
+
+  /** Escolher o workflow já liga as entradas aos valores de mesmo nome deste ponto (ex.: nome ← {{Nome}}). */
+  protected async setTarget(i: number, key: 'flowId' | 'projectId', id: string) {
+    this.edit((w) => {
+      w.actions[i].params[key] = id;
+      w.actions[i].values = {};
+    });
+    await this.loadTarget(id);
+    const t = this.target();
+    if (key === 'flowId' && t?.id === id && t.fields.length) {
+      const available = automationVarsAt(this.def(), this.wf()!, i).filter((v) => v.group !== 'Usuário' && !v.derived).map((v) => v.value);
+      this.edit((w) => (w.actions[i].values = autoMap(t.fields.map((f) => f.name), available, w.actions[i].values)));
+    }
+  }
+
+  protected setLinkMode(i: number, mode: string) {
+    this.edit((w) => {
+      const p = w.actions[i].params;
+      if (mode === 'url') { delete p['projectId']; p['url'] = p['url'] ?? ''; } else { delete p['url']; p['projectId'] = p['projectId'] ?? ''; }
+      w.actions[i].values = {};
+    });
+  }
+
+  /** Resumo do passo; nas ações entre projetos, o nome do projeto escolhido. */
   protected stepText(a: ActionDef) {
+    const id = a.type === 'startFlow' ? a.params['flowId'] : a.type === 'openLink' ? a.params['projectId'] : null;
+    const name = id ? this.projects().find((p) => p.id === id)?.name : null;
+    if (name) return a.type === 'startFlow' ? `Inicia ${name}` : `Abre ${name}`;
     return actionSummary(this.def(), a);
   }
 

@@ -1,11 +1,13 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { PRODUCT_NAME } from '../../app';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Api, errorMessage } from '../../core/api';
 import { FormSubmitResult, FormView, Props } from '../../core/models';
 import { LAYOUT, Notice } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import { answerProblem, nextIndex, progressAt } from './form-flow';
 import { render } from '../runtime/visibility';
+import { isInternal, isSafeLink, prefillFrom } from '../runtime/links';
 import { QuestionView } from './question-view';
 
 const OPEN = 'open';
@@ -81,6 +83,8 @@ export class FormRunner {
   protected readonly loadError = signal<string | null>(null);
   protected readonly step = signal(-1);
   protected readonly history = signal<number[]>([]);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   protected readonly answers = signal<Props>({});
   protected readonly problem = signal<string | null>(null);
   protected readonly sending = signal(false);
@@ -110,9 +114,10 @@ export class FormRunner {
     const v = this.view();
     return !v ? 0 : this.done() ? 100 : progressAt(v.form, this.step());
   });
+  /** Destino depois de enviar (decidido no servidor): http(s) ou outro projeto do site. */
   protected readonly redirect = computed(() => {
     const url = this.done()?.redirectUrl ?? '';
-    return /^https?:\/\//i.test(url) ? url : null; // só http(s)
+    return isSafeLink(url) ? url : null;
   });
 
   constructor() {
@@ -180,7 +185,7 @@ export class FormRunner {
       const result = this.preview() ? await this.api.submitFormDraft(this.id()!, answers) : await this.api.submitForm(this.slug()!, answers);
       this.done.set(result);
       const url = this.redirect();
-      if (url && !this.preview()) setTimeout(() => (location.href = url), REDIRECT_MS);
+      if (url && !this.preview()) setTimeout(() => (isInternal(url) ? this.router.navigateByUrl(url) : location.assign(url)), REDIRECT_MS);
     } catch (e) {
       this.problem.set(errorMessage(e));
     } finally {
@@ -192,6 +197,8 @@ export class FormRunner {
     try {
       const v = id ? await this.api.formDraft(id) : await this.api.form(slug!);
       this.view.set(v);
+      // Valores que vieram na URL (?Nome=Ana) já chegam respondidos; a pessoa pode mudar.
+      this.answers.set(prefillFrom(this.route.snapshot.queryParams, v.fields.map((f) => f.name)));
       if (id) this.notice.set({ text: 'Teste do rascunho: as respostas vão para os dados de teste, não para a produção.', error: false });
       this.track(OPEN);
     } catch (e) {

@@ -1,6 +1,6 @@
 import { AppDefinition, WorkflowDef } from '../../core/models';
 import { actionSummary, newAction } from './editor-ops';
-import { addVariable, automationVarsAt, variableProblem } from './variable-ops';
+import { addVariable, autoMap, automationVarsAt, inputsProblem, prefillNames, renameInput, variableProblem } from './variable-ops';
 
 // Jornada 3 (front): automações de mini app e formulário com variáveis, autocomplete e Transformar.
 describe('Variáveis nas automações', () => {
@@ -47,5 +47,26 @@ describe('Variáveis nas automações', () => {
     const t = newAction('transform');
     t.ops = [{ target: 'total', op: 'count', input: '{{api.response}}' }];
     expect(actionSummary(app(), t)).toBe('total ←');
+  });
+
+  it('escolher o workflow liga entradas aos valores de mesmo nome (sem acento/maiúscula/espaço), sem sobrescrever', () => {
+    expect(autoMap(['nome', 'area', 'nota'], ['Nome', 'Área', 'id'], { nota: '10' })).toEqual({ nome: '{{Nome}}', area: '{{Área}}', nota: '10' });
+  });
+
+  it('pré-preenchimento: colunas das perguntas no formulário, inputs no mini app', () => {
+    const form = { ...app(), form: { tableId: 't1', questions: [{ id: 'q', fieldId: 'f1', kind: 'number', title: 'Valor?', description: '', jumps: [] }] } } as unknown as AppDefinition;
+    expect(prefillNames(form)).toEqual(['Valor']);
+    expect(prefillNames(app())).toEqual(['titulo']);
+  });
+
+  it('entrada do gatilho "call": renomear atualiza {{input.x}}; esquema inválido explica', () => {
+    const w = wf('click');
+    w.trigger = { type: 'call', tableId: null, inputs: [{ name: 'nome', type: 'text' }] };
+    w.actions[0].params['subject'] = 'Olá {{input.nome}}';
+    renameInput(w, 'nome', 'cliente');
+    expect(w.actions[0].params['subject']).toBe('Olá {{input.cliente}}');
+    expect(inputsProblem([{ name: 'n', type: 'number', default: 'x' }])).toContain('número');
+    expect(inputsProblem([{ name: 'a', type: 'text' }, { name: 'A', type: 'text' }])).toContain('Já existe');
+    expect(inputsProblem([{ name: 'user', type: 'text' }])).toBeNull(); // entradas vivem em input.*
   });
 });

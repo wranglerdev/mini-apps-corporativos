@@ -3,6 +3,7 @@ import { Api } from '../../core/api';
 import { AppDefinition, AppDetail } from '../../core/models';
 import { LAYOUT } from '../../layout/layout';
 import { UI } from '../../ui/ui';
+import { newAction, newId } from '../builder/editor-ops';
 
 /** Aba Compartilhar: link do formulário, quem pode responder (login por departamento ou link público) e automações ligadas. */
 @Component({
@@ -42,7 +43,10 @@ import { UI } from '../../ui/ui';
       </app-section>
 
       <app-section layout="aside" title="Quando chegar resposta" description="Automações com o gatilho “Registro criado” na tabela de respostas.">
-        <button actions uiButton (click)="openAutomations.emit()">Abrir automações</button>
+        <ng-container actions>
+          <button uiButton (click)="sendToFlow()"><ui-icon name="workflow" /> Enviar respostas para um workflow</button>
+          <button uiButton variant="ghost" (click)="openAutomations.emit()">Abrir automações</button>
+        </ng-container>
         @for (w of onResponse(); track w.id) {
           <div class="version-row"><ui-icon name="recordCreated" /><span>{{ w.name }}</span></div>
         } @empty {
@@ -68,6 +72,18 @@ export class FormShareTab {
     const tableId = this.def().form?.tableId;
     return this.def().workflows.filter((w) => w.trigger.type === 'recordCreated' && w.trigger.tableId === tableId);
   });
+
+  /** Cria (no topo da lista) a automação "registro criado → Iniciar workflow" e abre Automações para escolher o workflow. */
+  protected sendToFlow() {
+    const d = structuredClone(this.def());
+    const tableId = d.form!.tableId;
+    d.workflows.unshift({
+      id: newId(), name: 'Enviar respostas para workflow', trigger: { type: 'recordCreated', tableId }, condition: null,
+      actions: [newAction('startFlow')],
+    });
+    this.def.set(d);
+    this.openAutomations.emit();
+  }
 
   protected setPublic(value: boolean) {
     const d = structuredClone(this.def());

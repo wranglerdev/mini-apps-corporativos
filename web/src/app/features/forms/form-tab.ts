@@ -1,9 +1,11 @@
-import { Component, computed, model, signal } from '@angular/core';
-import { AppDefinition, ConditionOp, FieldDef, JumpDef, QuestionDef, QuestionKind } from '../../core/models';
+import { Component, computed, inject, input, model, signal } from '@angular/core';
+import { Api } from '../../core/api';
+import { AppDefinition, AppSummary, ConditionDef, ConditionOp, FieldDef, JumpDef, QuestionDef, QuestionKind } from '../../core/models';
+import { ConditionEditor } from '../builder/condition-editor';
 import { UI } from '../../ui/ui';
 import { CONDITION_OPS } from '../runtime/visibility';
 import { PALETTE_KINDS, QUESTION_KINDS, choicesOf } from './form-flow';
-import { addJump, addQuestion, answerVarsAt, fieldOf, formOf, formTable, jumpTargets, moveQuestion, removeJump, removeQuestion, setKind } from './form-ops';
+import { RedirectMode, addRedirectRule, addJump, addQuestion, answerVarsAt, fieldOf, redirectMode, setRedirectMode, formOf, formTable, jumpTargets, moveQuestion, removeJump, removeQuestion, setKind } from './form-ops';
 import { VarPanel } from '../builder/var-panel';
 import { QuestionView } from './question-view';
 
@@ -15,7 +17,7 @@ type Selection = 'welcome' | 'end' | string;
  */
 @Component({
   selector: 'app-form-tab',
-  imports: [UI, QuestionView, VarPanel],
+  imports: [UI, QuestionView, VarPanel, ConditionEditor],
   template: `
     @let f = form();
     <div class="editor">
@@ -103,9 +105,42 @@ type Selection = 'welcome' | 'end' | string;
             <div class="panel__section">
               <ui-input label="Título" [value]="f.endTitle" [suggestions]="answers()" (valueChange)="setForm('endTitle', $event)" />
               <ui-input label="Texto" type="textarea" [value]="f.endText" [suggestions]="answers()" (valueChange)="setForm('endText', $event)" />
-              <ui-input label="Redirecionar para (opcional)" placeholder="https://intranet.corp.local/rh" [value]="f.redirectUrl ?? ''"
-                (valueChange)="setForm('redirectUrl', $event)" />
-              <p class="panel__hint">Só endereços http(s). Leva o respondente depois de alguns segundos.</p>
+            </div>
+            <div class="panel__section">
+              <h4>Depois de enviar</h4>
+              <ui-segmented label="Destino" [columns]="3" [options]="redirectModes" [value]="mode()" (valueChange)="setMode($event)" />
+              @switch (mode()) {
+                @case ('url') {
+                  <ui-input label="Link" [mono]="true" placeholder="https://intranet.corp.local/rh" [value]="f.redirectUrl ?? ''" [suggestions]="answers()"
+                    (valueChange)="setForm('redirectUrl', $event)" />
+                }
+                @case ('project') {
+                  <ui-select label="Projeto" [options]="projectOptions()" [value]="f.redirectProjectId ?? ''" placeholder="Escolha…" (valueChange)="setRedirectProject($event)" />
+                }
+                @default { <p class="panel__hint">Fica na tela final.</p> }
+              }
+              <p class="panel__hint">Leva o respondente depois de alguns segundos. Link: http(s) ou /caminho, com {{ open }}respostas{{ close }}.</p>
+            </div>
+            <div class="panel__section">
+              <h4>Redirecionar se…</h4>
+              @for (r of f.redirectRules ?? []; track $index; let i = $index) {
+                <div class="transform-op">
+                  <div class="panel__head"><span class="panel__group">Regra {{ i + 1 }}</span>
+                    <button uiButton variant="ghost" class="icon-btn" [attr.aria-label]="'Remover regra ' + (i + 1)" (click)="removeRule(i)">×</button>
+                  </div>
+                  <app-condition-editor [condition]="r.condition" [fields]="ruleFields()" fieldLabel="Resposta" (changed)="setRule(i, 'condition', $event)" />
+                  <ui-segmented label="Ir para" [columns]="2" [options]="ruleModes" [value]="r.url != null ? 'url' : 'project'" (valueChange)="setRuleMode(i, $event)" />
+                  @if (r.url != null) {
+                    <ui-input label="Link" [mono]="true" [value]="r.url" [suggestions]="answers()" (valueChange)="setRule(i, 'url', $event)" />
+                  } @else {
+                    <ui-select label="Projeto" [options]="projectOptions()" [value]="r.projectId ?? ''" placeholder="Escolha…" (valueChange)="setRule(i, 'projectId', $event)" />
+                  }
+                </div>
+              } @empty {
+                <p class="panel__hint">Ex.: nota baixa vai para o formulário de melhoria; área "TI" vai para o mini app de chamados.</p>
+              }
+              <button uiButton variant="ghost" (click)="addRule()"><ui-icon name="plus" /> Adicionar regra</button>
+              <p class="panel__hint">A primeira regra que bater decide; sem nenhuma, vale o destino acima.</p>
             </div>
           }
           @default {
@@ -177,6 +212,22 @@ type Selection = 'welcome' | 'end' | string;
 })
 export class FormTab {
   readonly def = model.required<AppDefinition>();
+  readonly appId = input.required<string>();
+  /** Workspace do formulário: o redirecionamento só lista projetos dele. */
+  readonly workspaceId = input.required<string>();
+  private readonly api = inject(Api);
+  private readonly projects = signal<AppSummary[]>([]);
+  protected readonly projectOptions = computed(() => this.projects().filter((p) => p.kind !== 'workflow')
+    .map((p) => ({ value: p.id, label: `${p.name} · ${p.kind === 'form' ? 'Formulário' : 'Mini app'}${p.publishedVersion ? '' : ' (rascunho)'}` })));
+  protected readonly redirectModes = [{ value: 'none', label: 'Ficar' }, { value: 'url', label: 'Link' }, { value: 'project', label: 'Projeto' }];
+  protected readonly ruleModes = [{ value: 'project', label: 'Projeto' }, { value: 'url', label: 'Link' }];
+  protected readonly mode = computed(() => redirectMode(this.form()));
+  /** Colunas das perguntas: campo das condições de redirecionamento. */
+  protected readonly ruleFields = computed(() => answerVarsAt(this.def(), null).map((v) => ({ value: v.value, label: v.value })));
+
+  constructor() {
+    this.api.apps().then((list) => this.projects.set(list.filter((p) => p.workspaceId === this.workspaceId() && p.id !== this.appId())), () => undefined);
+  }
 
   protected readonly kinds = QUESTION_KINDS;
   protected readonly palette = PALETTE_KINDS;
@@ -195,6 +246,7 @@ export class FormTab {
     return s === 'welcome' ? [] : answerVarsAt(this.def(), s === 'end' ? null : s);
   });
   protected readonly open = '{{';
+  protected readonly close = '}}';
   protected readonly example = '{{Nome}}';
   protected readonly field = computed(() => {
     const q = this.question();
@@ -246,10 +298,34 @@ export class FormTab {
     if (kind) this.edit((d) => setKind(d, this.selected(), kind as QuestionKind));
   }
 
+  protected setMode(mode: string) {
+    this.edit((d) => setRedirectMode(d, mode as RedirectMode));
+  }
+
+  protected setRedirectProject(id: string) {
+    this.edit((d) => (formOf(d).redirectProjectId = id));
+  }
+
+  protected addRule() {
+    this.edit((d) => addRedirectRule(d));
+  }
+
+  protected removeRule(i: number) {
+    this.edit((d) => formOf(d).redirectRules!.splice(i, 1));
+  }
+
+  protected setRuleMode(i: number, mode: string) {
+    this.edit((d) => Object.assign(formOf(d).redirectRules![i], mode === 'url' ? { url: '', projectId: null } : { url: null, projectId: '' }));
+  }
+
+  protected setRule(i: number, key: 'condition' | 'url' | 'projectId', value: string | ConditionDef) {
+    this.edit((d) => Object.assign(formOf(d).redirectRules![i], { [key]: value }));
+  }
+
   protected setForm(key: 'welcomeTitle' | 'welcomeText' | 'endTitle' | 'endText' | 'redirectUrl', value: string) {
     this.edit((d) => {
       const f = formOf(d);
-      if (key === 'redirectUrl') f.redirectUrl = value.trim() || null;
+      if (key === 'redirectUrl') f.redirectUrl = value.trim();
       else f[key] = value;
     });
   }

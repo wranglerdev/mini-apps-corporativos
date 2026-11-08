@@ -150,6 +150,16 @@ describe('Workflow: editor', () => {
     expect(t.ops).toEqual([]);
   });
 
+  it('gatilho "Chamado por outro projeto": entradas viram {{input.nome}} e apelidos delas valem', () => {
+    const d = blank();
+    flowOf(d).trigger = { type: 'call', tableId: null, inputs: [{ name: 'pedido', type: 'object' }] };
+    insertNear(d, 'sendEmail', null);
+    addVariable(flowOf(d), 'itens', 'list', 'input.pedido.itens');
+    const vars = variablesAt(d, 'email1').map((v) => v.value);
+    expect(vars).toEqual(jasmine.arrayContaining(['input.pedido', 'trigger.source', 'trigger.user', 'itens']));
+    expect(flowTriggerSummary(flowOf(d).trigger)).toBe('Entradas: pedido');
+  });
+
   it('resumos do gatilho e dos passos', () => {
     expect(cronLabel('0 8 * * 1-5')).toBe('Dias úteis às 08:00');
     expect(cronLabel('30 7 * * *')).toBe('Todo dia às 07:30');
@@ -182,4 +192,5 @@ describe('Workflow: execuções', () => {
     expect(r['email1'].text).toBe('Falhou · 2× · 300 ms');
     expect(duration(3420)).toBe('3,42 s');
   });
+
 });

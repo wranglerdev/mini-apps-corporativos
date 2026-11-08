@@ -280,6 +280,8 @@ export const ACTIONS: Record<ActionType, { label: string; params: PropSpec[]; us
     ],
   },
   navigate: { label: 'Navegar para página', usesValues: false, params: [{ key: 'pageId', label: 'Página', kind: 'page' }] },
+  startFlow: { label: 'Iniciar workflow', usesValues: false, params: [] },
+  openLink: { label: 'Abrir projeto ou link', usesValues: false, params: [] },
   runWorkflow: {
     label: 'Executar outra automação', usesValues: false,
     params: [{ key: 'workflowId', label: 'Automação (recebe as mesmas variáveis)', kind: 'anyWorkflow' }],
@@ -335,7 +337,7 @@ const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min)
 
 export const TRIGGER_LABELS: Record<WorkflowDef['trigger']['type'], string> = {
   click: 'Clique em botão', recordCreated: 'Registro criado', recordUpdated: 'Registro atualizado', schedule: 'Agendado',
-  manual: 'Manual', webhook: 'Webhook',
+  manual: 'Manual', webhook: 'Webhook', call: 'Chamado por outro projeto',
 };
 
 const OP_TEXT: Record<string, string> = {
@@ -371,6 +373,8 @@ export function actionSummary(def: AppDefinition, a: ActionDef): string {
     case 'navigate': return nameIn(def.pages, p['pageId']) ?? 'Escolha a página';
     case 'requestApproval': return p['approver'] ? `Aprovador ${p['approver']}` : 'Escolha o aprovador';
     case 'runWorkflow': return nameIn(def.workflows, p['workflowId']) ?? 'Escolha a automação';
+    case 'startFlow': return p['flowId'] ? 'Workflow escolhido' : 'Escolha o workflow';
+    case 'openLink': return p['projectId'] ? 'Abre outro projeto' : p['url'] ? `Abre ${p['url']}` : 'Escolha o destino';
     case 'transform': return [...new Set((a.ops ?? []).map((o) => o.target).filter(Boolean))].map((t) => `${t} ←`).join(', ') || 'Defina as operações';
     default: return ACTIONS[a.type]?.label ?? a.type;
   }

@@ -8,7 +8,7 @@ import { ConditionEditor } from '../builder/condition-editor';
 import { TransformOpsEditor } from '../builder/transform-ops-editor';
 import { VarEditor } from '../builder/var-editor';
 import { VarPanel } from '../builder/var-panel';
-import { VarItem, addVariable, removeVariable, renameVariable, variableProblem } from '../builder/variable-ops';
+import { VARIABLE_TYPES, VarItem, addVariable, inputsProblem, removeVariable, renameInput, renameVariable, variableProblem } from '../builder/variable-ops';
 import {
   PALETTE, RUN_STATUS, STEPS, StepType, flowOf, flowTriggerSummary, idProblem, insertNear, isDone, locate, loopNames, moveStep, removeStep, renameStep,
   resultsByStep, stepSummary, testValue, variablesAt,
@@ -69,6 +69,26 @@ const TEST_MAX_POLLS = 120;
             <ui-select label="Quando" [options]="triggerOptions" [value]="wf.trigger.type" placeholder="—" (valueChange)="setTriggerType($event)" />
             @switch (wf.trigger.type) {
               @case ('manual') { <p class="panel__hint">Roda pelo botão "Executar agora" da aba Execuções (produção) ou por "Testar" (rascunho).</p> }
+              @case ('call') {
+                <p class="panel__hint">Um mini app ou formulário do workspace inicia este workflow com a ação "Iniciar workflow" e manda as entradas abaixo, que chegam como {{ open }}input.nome{{ close }} já no tipo.</p>
+                @for (inp of wf.trigger.inputs ?? []; track $index; let i = $index) {
+                  <div class="transform-op">
+                    <div class="option-row">
+                      <ui-input label="Entrada" [mono]="true" [value]="inp.name" (valueChange)="setInput(i, 'name', $event)" />
+                      <button uiButton variant="ghost" class="icon-btn" [attr.aria-label]="'Remover entrada ' + inp.name" (click)="removeInput(i)">×</button>
+                    </div>
+                    <div class="form-row">
+                      <ui-select label="Tipo" [options]="typeOptions" [value]="inp.type" placeholder="—" (valueChange)="setInput(i, 'type', $event || 'text')" />
+                      <ui-input label="Padrão" [mono]="true" [value]="inp.default ?? ''" (valueChange)="setInput(i, 'default', $event)" />
+                    </div>
+                  </div>
+                } @empty {
+                  <p class="panel__hint">Sem entradas: o workflow roda só com {{ open }}trigger.source{{ close }} e {{ open }}trigger.user{{ close }}.</p>
+                }
+                @if (inputsError(); as e) { <p class="runner__problem small">{{ e }}</p> }
+                <button uiButton variant="ghost" (click)="addInput()"><ui-icon name="plus" /> Adicionar entrada</button>
+                <p class="panel__hint">"Testar" roda sem entradas (cada uma vale o padrão).</p>
+              }
               @case ('schedule') {
                 <ui-select label="Frequência" [options]="frequencies" [value]="wf.trigger.frequency ?? ''" (valueChange)="setTrigger('frequency', $event)" />
                 @if (wf.trigger.frequency === 'cron') {
@@ -213,8 +233,15 @@ export class FlowTab {
   protected readonly palette = PALETTE;
   protected readonly bodyVar = '{{trigger.body.…}}';
   protected readonly stepOptions = PALETTE.flatMap((g) => g.types).map((t) => ({ value: t, label: STEPS[t].label }));
-  protected readonly triggerLabels: Record<string, string> = { manual: 'Manual', schedule: 'Agendado', webhook: 'Webhook' };
-  protected readonly triggerOptions = [{ value: 'manual', label: 'Manual (Executar agora)' }, { value: 'schedule', label: 'Agendado' }, { value: 'webhook', label: 'Webhook (POST)' }];
+  protected readonly triggerLabels: Record<string, string> = { manual: 'Manual', schedule: 'Agendado', webhook: 'Webhook', call: 'Chamado por outro projeto' };
+  protected readonly triggerOptions = [
+    { value: 'manual', label: 'Manual (Executar agora)' }, { value: 'schedule', label: 'Agendado' }, { value: 'webhook', label: 'Webhook (POST)' },
+    { value: 'call', label: 'Chamado por mini app ou formulário' },
+  ];
+  protected readonly open = '{{';
+  protected readonly close = '}}';
+  protected readonly typeOptions = Object.entries(VARIABLE_TYPES).map(([value, t]) => ({ value, label: t.label }));
+  protected readonly inputsError = computed(() => (this.flow().trigger.type === 'call' ? inputsProblem(this.flow().trigger.inputs ?? []) : null));
   protected readonly frequencies = [
     { value: 'cron', label: 'Personalizado (cron)' }, { value: 'hourly', label: 'A cada hora' }, { value: 'daily', label: 'Diário' }, { value: 'weekly', label: 'Semanal' },
   ];
@@ -248,7 +275,7 @@ export class FlowTab {
   /** Caminhos para o apelido (sem a própria lista de variáveis nem segredos). */
   protected readonly paths = computed(() => this.vars().filter((v) => v.group !== 'Variáveis' && v.group !== 'Segredos'));
   protected readonly triggerText = computed(() => flowTriggerSummary(this.flow().trigger));
-  protected readonly triggerIcon = computed(() => ({ manual: 'manual', webhook: 'webhook', schedule: 'schedule' })[this.flow().trigger.type as string] ?? 'manual');
+  protected readonly triggerIcon = computed(() => ({ manual: 'manual', webhook: 'webhook', schedule: 'schedule', call: 'external' })[this.flow().trigger.type as string] ?? 'manual');
   protected readonly webhookUrl = computed(() => this.api.flowWebhookUrl(this.appId()));
   private readonly results = computed(() => resultsByStep(this.testRun()?.steps ?? []));
   protected readonly testText = computed(() => {
@@ -440,6 +467,31 @@ export class FlowTab {
       else if (key === 'dayOfWeek') t.dayOfWeek = value === '' ? null : Number(value);
       else t[key] = value || null;
     });
+  }
+
+  // ---------- Entradas do gatilho "call" ----------
+
+  protected addInput() {
+    this.edit((d) => {
+      const list = (flowOf(d).trigger.inputs ??= []);
+      let n = list.length + 1;
+      while (list.some((x) => x.name === `entrada${n}`)) n++;
+      list.push({ name: `entrada${n}`, type: 'text', default: null });
+    });
+  }
+
+  protected setInput(i: number, key: 'name' | 'type' | 'default', value: string) {
+    this.edit((d) => {
+      const wf = flowOf(d);
+      const inp = wf.trigger.inputs![i];
+      if (key === 'name') renameInput(wf, inp.name, value.trim());
+      else if (key === 'type') inp.type = value as VariableType;
+      else inp.default = value || null;
+    });
+  }
+
+  protected removeInput(i: number) {
+    this.edit((d) => flowOf(d).trigger.inputs!.splice(i, 1));
   }
 
   protected newKey() {

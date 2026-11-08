@@ -88,7 +88,17 @@ export interface FormDef {
   endTitle: string;
   endText: string;
   redirectUrl: string | null;
+  /** Formulário ou mini app do workspace para onde ir depois de enviar (no lugar do link). */
+  redirectProjectId?: string | null;
+  /** A primeira regra cuja condição (sobre as respostas) bater decide para onde ir; senão, o padrão. */
+  redirectRules?: RedirectRule[];
   public: boolean;
+}
+
+export interface RedirectRule {
+  condition: ConditionDef;
+  url?: string | null;
+  projectId?: string | null;
 }
 
 export interface FormView {
@@ -164,10 +174,10 @@ export interface TableDef {
   webhookKey: string | null;
 }
 
-export type TriggerType = 'click' | 'recordCreated' | 'recordUpdated' | 'schedule' | 'manual' | 'webhook';
+export type TriggerType = 'click' | 'recordCreated' | 'recordUpdated' | 'schedule' | 'manual' | 'webhook' | 'call';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'cron';
 export type ActionType = 'createRecord' | 'updateRecord' | 'sendEmail' | 'callApi' | 'navigate' | 'requestApproval' | 'runWorkflow'
-  | 'if' | 'forEach' | 'wait' | 'transform';
+  | 'startFlow' | 'openLink' | 'if' | 'forEach' | 'wait' | 'transform';
 export type ConditionOp = 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'empty' | 'notEmpty';
 
 export type ConditionJoin = 'and' | 'or';
@@ -232,6 +242,8 @@ export interface WorkflowDef {
     cron?: string | null;
     /** Gatilho webhook (projetos de workflow). */
     webhookKey?: string | null;
+    /** Gatilho "call" (chamado por outro projeto): esquema das entradas, que chegam como {{input.nome}}. */
+    inputs?: VariableDef[];
   };
   condition: ConditionDef | null;
   actions: ActionDef[];
@@ -269,6 +281,9 @@ export interface RecordLabel {
 
 export interface WorkflowResult {
   navigateTo: string | null;
+  /** Ação "Abrir projeto ou link": caminho do site ou http(s). */
+  openUrl?: string | null;
+  openInNewTab?: boolean;
   log: string[];
 }
 

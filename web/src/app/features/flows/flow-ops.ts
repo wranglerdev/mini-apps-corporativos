@@ -1,5 +1,5 @@
 import { ActionDef, ActionType, AppDefinition, RunStep, WorkflowDef } from '../../core/models';
-import { VarItem, aliasItems, declaredItems, rewriteRefs } from '../builder/variable-ops';
+import { VARIABLE_TYPES, VarItem, aliasItems, declaredItems, rewriteRefs } from '../builder/variable-ops';
 import { describeCondition, hasCondition } from '../builder/condition-ops';
 import { scheduleLabel } from '../builder/editor-ops';
 
@@ -166,6 +166,7 @@ export function cronLabel(cron: string | null | undefined): string {
 
 export function flowTriggerSummary(t: WorkflowDef['trigger']): string {
   if (t.type === 'manual') return 'Botão "Executar agora"';
+  if (t.type === 'call') return t.inputs?.length ? `Entradas: ${t.inputs.map((i) => i.name).join(', ')}` : 'Sem entradas';
   if (t.type === 'webhook') return t.webhookKey ? 'POST no endereço do webhook' : 'Gere a chave do webhook';
   if (t.type === 'schedule') return t.frequency === 'cron' ? cronLabel(t.cron) : scheduleLabel(t);
   return t.type;
@@ -219,6 +220,7 @@ export function variablesAt(def: AppDefinition, selectedId: string | null, outpu
     const [root, second] = from.toLowerCase().split('.');
     if (!root) return true;
     if (root === 'steps') return ids.has(second ?? '');
+    if (root === 'input') return wf.trigger.type === 'call' && (wf.trigger.inputs ?? []).some((i) => i.name.toLowerCase() === (second ?? ''));
     return root === 'trigger' || root === 'secrets' || loops.some((l) => l.toLowerCase() === root) || vars.some((v) => !v.from && v.name.toLowerCase() === root);
   };
 
@@ -228,6 +230,17 @@ export function variablesAt(def: AppDefinition, selectedId: string | null, outpu
   ];
   if (wf.trigger.type === 'manual') items.push({ value: 'trigger.user', group: 'Gatilho', hint: 'quem executou', about: 'E-mail de quem clicou em Executar agora ou Testar.' });
   if (wf.trigger.type === 'webhook') items.push({ value: 'trigger.body', group: 'Gatilho', hint: 'corpo JSON', about: 'Corpo JSON recebido no webhook; campos em trigger.body.campo.' });
+  if (wf.trigger.type === 'call') {
+    for (const i of (wf.trigger.inputs ?? []).filter((x) => x.name))
+      items.push({
+        value: `input.${i.name}`, group: 'Gatilho', hint: VARIABLE_TYPES[i.type]?.label,
+        about: `Entrada "${i.name}" (${VARIABLE_TYPES[i.type]?.label}), mandada por quem iniciou o workflow.`, empty: i.default?.trim() ? i.default : VARIABLE_TYPES[i.type]?.empty,
+      });
+    items.push(
+      { value: 'trigger.source', group: 'Gatilho', hint: 'projeto', about: 'Nome do mini app ou formulário que iniciou o workflow.' },
+      { value: 'trigger.user', group: 'Gatilho', hint: 'quem', about: 'E-mail de quem usou o mini app ou respondeu o formulário.' },
+    );
+  }
   for (const s of before) {
     const base = `steps.${s.id}`;
     const known = s.type === 'transform' ? [...(s.ops ?? []).map((o) => o.target), ...Object.keys(s.values)] : (KNOWN_OUTPUT[s.type] ?? []);

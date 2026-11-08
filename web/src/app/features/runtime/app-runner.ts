@@ -1,7 +1,9 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
 import { PageDef } from '../../core/models';
+import { pageInputs } from '../builder/variable-ops';
+import { prefillFrom } from './links';
 import { LAYOUT } from '../../layout/layout';
 import { UI } from '../../ui/ui';
 import { RenderedComponent } from './rendered-component';
@@ -60,6 +62,7 @@ export class AppRunner {
 
   protected readonly ctx = inject(RunContext);
   private readonly api = inject(Api);
+  private readonly route = inject(ActivatedRoute);
   protected readonly title = signal('');
   protected readonly version = signal<number | null>(null);
   protected readonly error = signal('');
@@ -98,6 +101,9 @@ export class AppRunner {
         this.ctx.canManage.set(true);
         this.ctx.definition.set(a.draft);
       }
+      // Valores que vieram na URL (ação "Abrir projeto ou link" de outro projeto) preenchem os inputs com o mesmo nome.
+      const def = this.ctx.definition();
+      if (def) this.ctx.inputs.set(prefillFrom(this.route.snapshot.queryParams, pageInputs(def).map((i) => i.name)));
     } catch (e) {
       this.error.set((e as { error?: { title?: string } })?.error?.title ?? 'Não foi possível abrir o app.');
     }
