@@ -20,7 +20,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
 
     private sealed class StepFailed(string message) : Exception(message);
 
-    private sealed class Execution(WorkflowRun run, AppScope scope, Dictionary<string, string?> ctx, List<string> secretValues, DateTime deadline, CancellationToken ct)
+    private sealed class Execution(WorkflowRun run, AppScope scope, Dictionary<string, string?> ctx, List<string> secretValues, DateTime deadline, CancellationToken ct, List<VariableDef> vars)
     {
         public WorkflowRun Run { get; } = run;
         public AppScope Scope { get; } = scope;
@@ -28,6 +28,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
         public List<string> SecretValues { get; } = secretValues;
         public DateTime Deadline { get; } = deadline;
         public CancellationToken Ct { get; } = ct;
+        public List<VariableDef> Vars { get; } = vars;
         public int Order { get; set; }
         public int Executed { get; set; }
         public string? SkipUntil { get; set; }
@@ -52,7 +53,8 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
             var ctx = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             JsonVars.Put(ctx, "trigger", JsonVars.Parse(run.TriggerData));
             foreach (var (name, value) in values) ctx[$"secrets.{name}"] = value;
-            var exec = new Execution(run, scope, ctx, [.. values.Values.Where(v => v.Length >= 4)], DateTime.UtcNow + RunTimeout, ct);
+            Variables.Init(ctx, wf.Variables);
+            var exec = new Execution(run, scope, ctx, [.. values.Values.Where(v => v.Length >= 4)], DateTime.UtcNow + RunTimeout, ct, wf.Variables);
 
             if (run.SourceRunId is { } source && run.StartFromStepId is { } from)
             {
@@ -109,6 +111,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
         if (step.Id is not null && x.Reused.TryGetValue(step.Id, out var previous))
         {
             JsonVars.Put(x.Ctx, $"steps.{step.Id}", JsonVars.Parse(previous.Output));
+            Variables.RefreshAliases(x.Ctx, x.Vars);
             span.Output = previous.Output;
         }
         await EndAsync(span, RunStatus.Skipped, error: null, note: "reaproveitado da execução anterior");
@@ -131,6 +134,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
                 _ => await ActionAsync(x, step, span, depth)
             };
             if (!string.IsNullOrWhiteSpace(step.Id)) JsonVars.Put(x.Ctx, $"steps.{step.Id}", output);
+            Variables.RefreshAliases(x.Ctx, x.Vars);
             span.Output = Store(x, output.ToJsonString());
             await EndAsync(span, RunStatus.Succeeded);
         }
@@ -179,6 +183,7 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
             var item = await BeginAsync(x, span.Id, depth + 1, null, $"Item {i + 1}", "item");
             JsonVars.Put(x.Ctx, name, list[i]?.DeepClone());
             x.Ctx[$"{name}.index"] = i.ToString();
+            Variables.RefreshAliases(x.Ctx, x.Vars);
             item.Input = Store(x, list[i]?.ToJsonString() ?? "null");
             try { await RunListAsync(x, step.Steps, item.Id, depth + 2, topLevel: false); }
             catch (StepFailed ex) { await EndAsync(item, RunStatus.Failed, ex.Message); throw; }
@@ -195,11 +200,19 @@ public class FlowRunner(IRunStore runs, IAppRepository apps, AppService appServi
         return new JsonObject { ["seconds"] = seconds };
     }
 
+    /// <summary>Formato antigo (Values → saída) e operações (Ops → variáveis, em ordem: uma lê o que a anterior gravou).</summary>
     private JsonNode Transform(Execution x, ActionDef step, RunStep span)
     {
         var result = new JsonObject();
         foreach (var (key, template) in step.Values) result[key] = JsonVars.Parse(Template.Render(template, x.Ctx));
-        span.Input = Store(x, new JsonObject(step.Values.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))).ToJsonString());
+        var input = new JsonArray();
+        try
+        {
+            foreach (var (k, v) in Variables.ApplyOps(x.Ctx, x.Vars, step.Ops, input)) result[k] = v?.DeepClone();
+        }
+        catch (VariableException ex) { throw new StepFailed($"Passo '{step.Id}': {ex.Message}."); }
+        span.Input = Store(x, step.Ops.Count > 0 ? input.ToJsonString()
+            : new JsonObject(step.Values.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))).ToJsonString());
         return result;
     }
 

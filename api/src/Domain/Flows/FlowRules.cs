@@ -105,6 +105,8 @@ public static partial class FlowRules
         }
         foreach (var dup in steps.Where(s => !string.IsNullOrWhiteSpace(s.Id)).GroupBy(s => s.Id!, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
             errors.Add($"Id de passo repetido: {dup.Key}.");
+        var loops = steps.Where(s => s.Type == Actions.ForEach).Select(s => s.Params.GetValueOrDefault("as") is { Length: > 0 } a ? a : "item");
+        errors.AddRange(Variables.Problems(wf, loops, "um \"para cada\""));
         return errors;
     }
 }

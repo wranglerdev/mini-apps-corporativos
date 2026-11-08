@@ -81,8 +81,15 @@ public class AppDefinition
         if (Form is not null) errors.AddRange(FormFlow.Problems(Form, Tables));
         if (Tables.GroupBy(t => t.Name.Trim().ToLowerInvariant()).Any(g => g.Count() > 1)) errors.Add("Nomes de tabela repetidos.");
 
+        // Variáveis das automações não podem esconder campos de tabela nem inputs de página (são o contexto delas).
+        var contextNames = Tables.SelectMany(t => t.Fields.Select(f => f.Name))
+            .Concat(Pages.SelectMany(p => p.Components.SelectMany(c => c.Flatten())).Select(x => x.Component.Props.GetValueOrDefault("name") ?? ""))
+            .Where(n => n.Length > 0).ToList();
         foreach (var wf in Workflows)
         {
+            if (!Automation) errors.AddRange(Variables.Problems(wf, contextNames, "um campo ou input"));
+            if (!Automation && ActionDef.Flatten(wf.Actions).Any(a => a.Type is Actions.If or Actions.ForEach or Actions.Wait))
+                errors.Add($"Workflow '{wf.Name}': se, para cada e esperar só existem em projetos de workflow.");
             if (wf.Trigger.Type == Triggers.Schedule && Schedule.Problem(wf.Trigger) is { } problem)
                 errors.Add($"Workflow '{wf.Name}': {problem}.");
             foreach (var a in ActionDef.Flatten(wf.Actions).Where(a => a.Type == Actions.RunWorkflow))
@@ -214,7 +221,7 @@ public static class Actions
     public const string ForEach = "forEach";
     /// <summary>Esperar: Params.seconds.</summary>
     public const string Wait = "wait";
-    /// <summary>Transformar: Values (nome → {{}}) viram a saída do passo.</summary>
+    /// <summary>Transformar: Ops (operações que gravam em variáveis do workflow); Values (nome → {{}}, formato antigo) viram a saída do passo.</summary>
     public const string Transform = "transform";
 
     public static readonly string[] Control = [If, ForEach, Wait, Transform];
@@ -311,6 +318,8 @@ public class ActionDef
     public List<ActionDef> Steps { get; set; } = [];
     /// <summary>"if": passos do "senão".</summary>
     public List<ActionDef> Else { get; set; } = [];
+    /// <summary>"transform": operações em ordem; cada uma grava numa variável do workflow.</summary>
+    public List<TransformOp> Ops { get; set; } = [];
     /// <summary>Tentativas extras se o passo falhar (espera 1 s, 2 s, 4 s...). Só para passos seguros de repetir.</summary>
     public int Retries { get; set; }
     /// <summary>Tempo limite do passo (padrão 30 s).</summary>
@@ -328,4 +337,26 @@ public class WorkflowDef
     public TriggerDef Trigger { get; set; } = new();
     public ConditionDef? Condition { get; set; }
     public List<ActionDef> Actions { get; set; } = [];
+    /// <summary>Só em projetos de workflow: variáveis tipadas, usadas como {{nome}} (ver Variables).</summary>
+    public List<VariableDef> Variables { get; set; } = [];
+}
+
+/// <summary>Variável de workflow. Type: text | number | boolean | date | list | object.</summary>
+public class VariableDef
+{
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = Domain.Variables.Text;
+    /// <summary>Valor quando vazia (texto; lista/objeto em JSON). Nulo = vazio do tipo.</summary>
+    public string? Default { get; set; }
+    /// <summary>Apelido: caminho do contexto (ex.: steps.api1.body.cliente, trigger.body). O valor acompanha o caminho.</summary>
+    public string? From { get; set; }
+}
+
+/// <summary>Operação do "Transformar": Target = variável, Op = operação (TransformOps), Input e Arg aceitam {{variáveis}}.</summary>
+public class TransformOp
+{
+    public string Target { get; set; } = "";
+    public string Op { get; set; } = "set";
+    public string? Input { get; set; }
+    public string? Arg { get; set; }
 }

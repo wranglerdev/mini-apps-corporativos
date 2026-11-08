@@ -89,6 +89,7 @@ public class WorkflowEngine(IRecordRepository records, IApprovalRepository appro
             ["user.name"] = user.Name,
             ["user.department"] = user.Department
         };
+        Variables.Init(ctx, wf.Variables);
         var result = new WorkflowResult();
         if (!Conditions.Evaluate(wf.Condition, ctx))
         {
@@ -96,7 +97,17 @@ public class WorkflowEngine(IRecordRepository records, IApprovalRepository appro
             return result;
         }
 
-        foreach (var action in wf.Actions) await ExecuteActionAsync(scope, action, ctx, user, result, depth);
+        foreach (var action in wf.Actions)
+        {
+            // Transformar grava nas variáveis da automação; o resto são as ações comuns.
+            if (action.Type == Actions.Transform)
+            {
+                try { Variables.ApplyOps(ctx, wf.Variables, action.Ops); }
+                catch (VariableException ex) { throw new ValidationException($"{wf.Name}: Transformar: {ex.Message}."); }
+            }
+            else await ExecuteActionAsync(scope, action, ctx, user, result, depth);
+            Variables.RefreshAliases(ctx, wf.Variables);
+        }
         await audit.WriteAsync(user, "workflow.run", "workflow", wf.Id, wf.Name);
         return result;
     }
