@@ -146,7 +146,7 @@ export class HomePage {
 
   /** Como no Figma: cria "sem título" e abre o editor; o nome se ajusta lá. */
   protected create(k: ProjectKindOption) {
-    if (!k.ready) return;
+    if (!k.ready || k.kind === 'catalog') return;
     const kind = k.kind;
     return this.attempt(async () => {
       const app = await this.api.createApp(this.workspaceId(), NEW_NAME[kind], null, kind);

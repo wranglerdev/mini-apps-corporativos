@@ -5,7 +5,8 @@ import { AppSummary, ComponentType } from '../../core/models';
 export type ProjectKind = 'app' | 'form' | 'workflow';
 
 export interface ProjectKindOption {
-  kind: ProjectKind;
+  /** 'catalog': próxima feature (dados enviados entre os apps num só lugar), ainda não criável. */
+  kind: ProjectKind | 'catalog';
   label: string;
   text: string;
   icon: string;
@@ -18,6 +19,7 @@ export const PROJECT_KINDS: ProjectKindOption[] = [
   { kind: 'app', label: 'Mini app', icon: 'app', text: 'Páginas, banco de dados e automações.', ready: true },
   { kind: 'form', label: 'Formulário', icon: 'form', text: 'Uma pergunta por vez, com lógica e link.', ready: true },
   { kind: 'workflow', label: 'Workflow', icon: 'workflow', text: 'Automação em segundo plano, com histórico.', ready: true },
+  { kind: 'catalog', label: 'Catálogo', icon: 'catalog', text: 'Conecte os dados enviados entre os apps em um só lugar', ready: false },
 ];
 
 export const NEW_NAME: Record<ProjectKind, string> = { app: 'App sem título', form: 'Formulário sem título', workflow: 'Workflow sem título' };

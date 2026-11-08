@@ -94,7 +94,7 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 | Catálogo interno | ✅ | `/catalog` lista apps publicados e liberados para o departamento |
 | Formulários | ✅ | Ver [PRD-FORMS.md](PRD-FORMS.md): perguntas com lógica de pulo, `/f/{slug}`, link público opcional, resumo e respostas |
 | Workflows | ✅ | Ver [PRD-WORKFLOWS.md](PRD-WORKFLOWS.md): projeto próprio, passos aninhados, fila com histórico em waterfall, tentativas, segredos, webhook e cron |
-| Início | ✅ | `/` (estilo Figma): criar Mini app, Formulário ou Workflow (abre o editor "sem título"); recentes em grade com miniatura e filtro por tipo (builder) ou apps para você (usuário). O que cada papel pode fazer fica na barra lateral, com contador de aprovações |
+| Início | ✅ | `/` (estilo Figma): criar Mini app, Formulário ou Workflow (abre o editor "sem título"), mais o card **Catálogo** "Em breve" (próxima feature: dados enviados entre os apps num só lugar); recentes em grade com miniatura e filtro por tipo (builder) ou apps para você (usuário). O que cada papel pode fazer fica na barra lateral, com contador de aprovações |
 
 ## Fora do MVP (próximos passos)
 

@@ -6,7 +6,7 @@ describe('Início', () => {
   const app = (id: string, updatedAt: string, kind: AppSummary['kind'] = 'app') => ({ id, updatedAt, kind }) as AppSummary;
 
   it('tipos de projeto: mini app, formulário e workflow disponíveis', () => {
-    expect(PROJECT_KINDS.map((k) => [k.kind, k.ready])).toEqual([['app', true], ['form', true], ['workflow', true]]);
+    expect(PROJECT_KINDS.map((k) => [k.kind, k.ready])).toEqual([['app', true], ['form', true], ['workflow', true], ['catalog', false]]);
   });
 
   it('formulário abre em /f e mini app em /run', () => {

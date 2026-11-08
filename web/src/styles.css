@@ -184,6 +184,7 @@ a.index__name:hover { color: var(--pen); }
 .create-card__icon[data-kind='app'] { background: linear-gradient(135deg, #5e6ad2, #8b5cf6); }
 .create-card__icon[data-kind='form'] { background: linear-gradient(135deg, #0ea5e9, #14b8a6); }
 .create-card__icon[data-kind='workflow'] { background: linear-gradient(135deg, #f97316, #ec4899); }
+.create-card__icon[data-kind='catalog'] { background: linear-gradient(135deg, #eab308, #22c55e); }
 .create-card__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .create-card__text strong { display: flex; align-items: center; gap: 6px; font-size: var(--fs-md); font-weight: 600; }
 .create-card__text > span { font-size: var(--fs-sm); color: var(--ink-soft); }
