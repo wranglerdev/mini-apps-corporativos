@@ -26,7 +26,7 @@ export interface AppSummary {
   isTemplate: boolean;
   inCatalog: boolean;
   updatedAt: string;
-  /** Primeiros componentes da 1ª página (rascunho para quem gerencia, publicada no catálogo): miniatura. */
+  /** Primeiros componentes da 1ª página (rascunho para quem gerencia, publicada na Biblioteca): miniatura. */
   sketch: { type: ComponentType; span: number }[];
   kind: ProjectKind;
 }

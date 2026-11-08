@@ -20,7 +20,7 @@ import { RunContext } from './run-context';
   template: `
     @if (error()) {
       <app-page>
-        <app-page-header title="Não foi possível abrir o app" [crumb]="{ label: 'Catálogo', link: '/catalog' }" />
+        <app-page-header title="Não foi possível abrir o app" [crumb]="{ label: 'Biblioteca', link: '/biblioteca' }" />
         <ui-notice [error]="true">{{ error() }}</ui-notice>
       </app-page>
     } @else if (ctx.definition(); as def) {
@@ -66,9 +66,9 @@ export class AppRunner {
   protected readonly title = signal('');
   protected readonly version = signal<number | null>(null);
   protected readonly error = signal('');
-  /** Produção volta ao catálogo; rascunho volta ao editor. */
+  /** Produção volta à Biblioteca; rascunho volta ao editor. */
   protected readonly crumb = computed(() =>
-    this.ctx.env() === 'draft' ? { label: 'Editor', link: ['/builder', this.ctx.appId()] } : { label: 'Catálogo', link: '/catalog' });
+    this.ctx.env() === 'draft' ? { label: 'Editor', link: ['/builder', this.ctx.appId()] } : { label: 'Biblioteca', link: '/biblioteca' });
 
   protected readonly currentPage = computed<PageDef | undefined>(() => {
     const pages = this.ctx.definition()?.pages ?? [];

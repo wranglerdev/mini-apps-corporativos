@@ -7,9 +7,9 @@ describe('Moldura', () => {
   const labels = (role: CurrentUser['role']) => navItems(user(role), 0).map((s) => s.label);
 
   it('navegação segue o papel', () => {
-    expect(labels('user')).toEqual(['Início', 'Catálogo', 'Aprovações']);
-    expect(labels('builder')).toEqual(['Início', 'Catálogo', 'Aprovações', 'Meus apps']);
-    expect(labels('admin')).toEqual(['Início', 'Catálogo', 'Aprovações', 'Meus apps', 'Governança']);
+    expect(labels('user')).toEqual(['Início', 'Biblioteca', 'Aprovações']);
+    expect(labels('builder')).toEqual(['Início', 'Biblioteca', 'Aprovações', 'Meus apps']);
+    expect(labels('admin')).toEqual(['Início', 'Biblioteca', 'Aprovações', 'Meus apps', 'Governança']);
   });
 
   it('aprovações pendentes viram contador; sem pendência, nada', () => {

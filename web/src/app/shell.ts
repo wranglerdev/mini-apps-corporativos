@@ -19,7 +19,7 @@ export function navItems(user: CurrentUser | null, pendingApprovals: number): Na
     ({ label, link, icon, badge, exact: link === '/' });
   const list = [
     item('Início', '/', 'home'),
-    item('Catálogo', '/catalog', 'catalog'),
+    item('Biblioteca', '/biblioteca', 'library'),
     item('Aprovações', '/approvals', 'approvals', pendingApprovals || null),
   ];
   if (canBuild(user)) list.push(item('Meus apps', '/builder', 'projects'));

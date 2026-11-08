@@ -27,3 +27,4 @@ ADR aceito não é reescrito; uma decisão nova o substitui (`Substituído por N
 | [0017](0017-variaveis-tipadas-no-workflow.md) | Variáveis tipadas no workflow, com apelido e Transformar por operações | feature | Aceito | 2026-11-08 |
 | [0018](0018-variaveis-em-automacoes-textos-e-formularios.md) | Variáveis nas automações, nos textos do mini app e nos formulários | feature | Aceito | 2026-11-08 |
 | [0019](0019-navegacao-e-workflows-entre-projetos.md) | Navegação e workflows entre projetos (mini app, formulário e workflow) | feature | Aceito | 2026-11-08 |
+| [0020](0020-catalogo-vira-biblioteca.md) | "Catálogo" vira "Biblioteca", com os templates | ui | Aceito | 2026-11-08 |

@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../core/api';
 import { AuthService, canBuild } from '../core/auth/auth';
 import { Approval, AppSummary, AuditEntry, Workspace } from '../core/models';
@@ -19,21 +19,41 @@ async function attempt(notice: (n: Notice) => void, fn: () => Promise<unknown>, 
 const date = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
 const dateTime = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
-/** Catálogo interno: apps publicados liberados para o departamento. Builders podem clonar. */
+/**
+ * Biblioteca (antes "Catálogo"; ADR 0020): templates para começar um projeto (builders) e apps publicados pelas áreas e
+ * liberados para o departamento. Builders podem usar um template ou clonar um app para o próprio workspace.
+ */
 @Component({
-  selector: 'app-catalog-page',
+  selector: 'app-library-page',
   imports: [UI, LAYOUT, RouterLink],
   template: `
     <app-page [notice]="notice()">
-      <app-page-header title="Catálogo" subtitle="Apps publicados pelas áreas da empresa e liberados para você.">
+      <app-page-header title="Biblioteca" subtitle="Templates para começar e apps publicados pelas áreas da empresa.">
         @if (builder() && workspaces().length > 1) {
           <div actions style="min-width: 240px">
-            <ui-select label="Clonar para" [options]="wsOptions()" [(value)]="target" />
+            <ui-select label="Criar em" [options]="wsOptions()" [(value)]="target" />
           </div>
         }
       </app-page-header>
 
-      <app-section [title]="apps().length + (apps().length === 1 ? ' app disponível' : ' apps disponíveis')">
+      @if (builder()) {
+        <app-section title="Templates" description="Modelos prontos compartilhados entre as áreas. Cria uma cópia editável no seu workspace.">
+          <div class="tiles">
+            @for (t of templates(); track t.id) {
+              <div class="tile">
+                <strong class="tile__name">{{ t.name }}</strong>
+                <p class="tile__text">{{ t.description }}</p>
+                <button uiButton (click)="useTemplate(t)" [disabled]="!target()">Usar template</button>
+              </div>
+            } @empty {
+              <app-empty title="Nenhum template ainda" text="Marque um projeto como template na aba Publicação do editor para ele aparecer aqui." />
+            }
+          </div>
+        </app-section>
+      }
+
+      <app-section [title]="apps().length + (apps().length === 1 ? ' app publicado' : ' apps publicados')"
+        description="Liberados para o seu departamento.">
         <div class="index">
           @for (a of apps(); track a.id) {
             <div class="index__row">
@@ -60,11 +80,13 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateSt
     </app-page>
   `,
 })
-export class CatalogPage {
+export class LibraryPage {
   private readonly api = inject(Api);
+  private readonly router = inject(Router);
   private readonly user = inject(AuthService).user;
   protected readonly builder = computed(() => canBuild(this.user()));
   protected readonly apps = signal<AppSummary[]>([]);
+  protected readonly templates = signal<AppSummary[]>([]);
   protected readonly workspaces = signal<Workspace[]>([]);
   protected readonly target = signal('');
   protected readonly notice = signal<Notice>(null);
@@ -74,13 +96,23 @@ export class CatalogPage {
     attempt(this.notice.set, async () => {
       this.apps.set(await this.api.catalog());
       if (this.builder()) {
-        this.workspaces.set(await this.api.workspaces());
+        const [templates, workspaces] = await Promise.all([this.api.templates(), this.api.workspaces()]);
+        this.templates.set(templates);
+        this.workspaces.set(workspaces);
         this.target.set(this.workspaces()[0]?.id ?? '');
       }
     });
   }
 
   protected link = runLink;
+
+  /** Cria a cópia do template no workspace escolhido e abre o editor. */
+  protected useTemplate(t: AppSummary) {
+    return attempt(this.notice.set, async () => {
+      const app = await this.api.createApp(this.target(), t.name, t.id, t.kind);
+      this.router.navigate(['/builder', app.id]);
+    });
+  }
 
   protected clone(a: AppSummary) {
     return attempt(this.notice.set, () => this.api.duplicate(a.id, this.target()), `Cópia de "${a.name}" criada em Meus apps.`);

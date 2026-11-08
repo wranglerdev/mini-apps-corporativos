@@ -1,11 +1,13 @@
 import { Routes } from '@angular/router';
 import { adminGuard, builderGuard } from './core/auth/auth';
 import { HomePage } from './features/home/home-page';
-import { AdminPage, ApprovalsPage, CatalogPage } from './features/pages';
+import { AdminPage, ApprovalsPage, LibraryPage } from './features/pages';
 
 export const routes: Routes = [
   { path: '', component: HomePage, title: 'Início' },
-  { path: 'catalog', component: CatalogPage, title: 'Catálogo' },
+  { path: 'biblioteca', component: LibraryPage, title: 'Biblioteca' },
+  // Antigo "Catálogo": links salvos continuam funcionando.
+  { path: 'catalog', redirectTo: 'biblioteca' },
   { path: 'approvals', component: ApprovalsPage, title: 'Aprovações' },
   // Modo usuário (produção) e preview do rascunho
   { path: 'run/:slug', loadComponent: () => import('./features/runtime/app-runner').then((m) => m.AppRunner) },

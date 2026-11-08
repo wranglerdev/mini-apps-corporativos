@@ -19,7 +19,7 @@ disparar automações (aprovação, e-mail, chamar API), sem nada de infra por c
 
 Um formulário **é um projeto** do mesmo tipo dos mini apps: o `App` ganha `Kind = app | form | workflow`.
 Ganha de graça: workspace, rascunho × produção, versões/rollback, permissões por departamento, auditoria,
-catálogo, template e duplicar. A definição continua um `AppDefinition`:
+Biblioteca, template e duplicar. A definição continua um `AppDefinition`:
 
 - **Respostas = uma tabela** (`TableDef`) criada junto com o formulário. Cada pergunta é um campo.
   Exportar Excel/CSV/PDF, busca e gráficos já funcionam sobre ela.
@@ -52,7 +52,7 @@ catálogo, template e duplicar. A definição continua um `AppDefinition`:
 ### MVP do formulário
 | Feature | Status | Como ficou |
 |---|---|---|
-| Tipo de projeto "Formulário" | ✅ | `App.Kind` **derivado da definição** (`AppDefinition.Form` preenchido = formulário; sem coluna nova). Início cria, filtra e mostra o tipo; Meus apps e Catálogo também. O tipo não muda depois de criado |
+| Tipo de projeto "Formulário" | ✅ | `App.Kind` **derivado da definição** (`AppDefinition.Form` preenchido = formulário; sem coluna nova). Início cria, filtra e mostra o tipo; Meus apps e Biblioteca também. O tipo não muda depois de criado |
 | Editor de perguntas | ✅ | Aba Perguntas: lista (boas-vindas, perguntas, tela final), paleta de tipos, prévia no centro, propriedades à direita. Tipos: texto curto/longo, e-mail, número, data, seleção, sim/não, escala 0–10. Cada pergunta grava num campo da tabela Respostas (criar/remover/trocar tipo mexe no campo junto). `file` existe no backend, fora da paleta |
 | Uma pergunta por vez | ✅ | `/f/{slug}` (publicado) e `/f-preview/{id}` (rascunho, só quem gerencia, grava nos dados de teste). Boas-vindas, progresso, Voltar, Enter avança, escolha avança sozinha. Sem barra lateral |
 | Validação | ✅ | No navegador antes de avançar (`answerProblem`) e no envio (`FormService`): obrigatória do caminho, e-mail, escala 0–10, tipos (`RecordValidator`) |

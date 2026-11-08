@@ -11,7 +11,7 @@ const KIND_LABEL: Record<ProjectKind, string> = { app: 'Mini app', form: 'Formul
 
 /**
  * Início (referência: navegador de arquivos do Figma): criar no topo, projetos recentes em grade com miniatura
- * e filtro por tipo. Os atalhos (catálogo, aprovações...) ficam na barra lateral.
+ * e filtro por tipo. Os atalhos (biblioteca, aprovações...) ficam na barra lateral.
  */
 @Component({
   selector: 'app-home-page',
@@ -48,7 +48,7 @@ const KIND_LABEL: Record<ProjectKind, string> = { app: 'Mini app', form: 'Formul
           @if (builder()) {
             <ui-segmented label="Tipo" [options]="filters" [(value)]="filter" />
           } @else {
-            <a uiButton variant="ghost" routerLink="/catalog">Ver catálogo</a>
+            <a uiButton variant="ghost" routerLink="/biblioteca">Ver biblioteca</a>
           }
         </div>
         <div class="project-grid">

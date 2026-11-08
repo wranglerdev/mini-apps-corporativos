@@ -120,7 +120,7 @@ src/app/
                    form-share-tab); form-flow.ts (caminho, espelho de FormFlow) e form-ops.ts (editor) são regras puras
     builder/       apps-page, editor-page, design/data/workflows tabs, editor-ops.ts (regras puras do editor)
     runtime/       app-runner (modo usuário), run-context, form-block, data-blocks, rendered-component
-    pages.ts       catálogo (`/catalog`), aprovações, admin
+    pages.ts       biblioteca (`/biblioteca`: templates + apps publicados), aprovações, admin
 ```
 
 - Layout padronizado: toda tela é `app-page` → `app-page-header` → `app-section`s. Larguras: `default` (1120px, leitura),
@@ -132,7 +132,7 @@ src/app/
 - Automações no editor: nós em coluna (`workflows-tab`), resumo de cada nó por funções puras (`triggerSummary`,
   `conditionSummary`, `actionSummary` em `editor-ops.ts`).
 - Miniatura do Início: `AppSummary.sketch` (backend) = tipo e largura dos 8 primeiros componentes da 1ª página
-  (rascunho para quem gerencia, publicada no catálogo); o front desenha os blocos em CSS (`sketchBlocks`).
+  (rascunho para quem gerencia, publicada na Biblioteca); o front desenha os blocos em CSS (`sketchBlocks`).
 - Tema: tokens em `ui.css` com versão escura; `ThemeService` grava `data-theme` em `<html>` (ou nada = segue o sistema)
   e `index.html` aplica o tema salvo antes do bootstrap.
 - Estado com `signal`/`computed`/`linkedSignal`; edição da definição sempre por `structuredClone` + `set`.

@@ -322,6 +322,7 @@ const ICONS: Record<string, string> = {
   moon: 'M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z',
   auto: 'M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM8 2v12',
   external: 'M9.5 2.5h4v4M13.5 2.5 7.5 8.5M12 9.5v4h-9.5V4h4',
+  library: 'M3 3.5a1 1 0 0 1 1-1h2.5v11H4a1 1 0 0 1-1-1zM6.5 2.5h3v11h-3zM10.2 3.1l2.4-.6 1.9 10.4-2.4.5z',
   play: 'M5 3 13 8 5 13z',
   layers: 'M8 2 14 5 8 8 2 5zM2 8l6 3 6-3',
   insert: 'M2.5 2.5h11v11h-11zM8 5.5v5M5.5 8h5',

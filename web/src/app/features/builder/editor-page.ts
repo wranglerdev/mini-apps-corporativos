@@ -78,18 +78,18 @@ const ICON_BY_KIND = { app: 'app', form: 'form', workflow: 'workflow' };
           @case ('publicacao') {
             <div class="tool-scroll">
               <div class="settings">
-                <app-section layout="aside" title="Informações" description="Como o app aparece no catálogo e em Meus apps.">
+                <app-section layout="aside" title="Informações" description="Como o app aparece na Biblioteca e em Meus apps.">
                   <ui-input label="Nome" [value]="name()" (valueChange)="name.set($event); dirty.set(true)" />
                   <ui-input label="Descrição" type="textarea" [value]="description()" (valueChange)="description.set($event); dirty.set(true)" />
                 </app-section>
 
                 <app-section layout="aside" title="Acesso e compartilhamento" description="Quem encontra e usa a versão publicada.">
                   @if (!isFlow()) {
-                    <ui-checkbox label="Mostrar no catálogo interno" [checked]="inCatalog()" (checkedChange)="inCatalog.set($event); dirty.set(true)" />
+                    <ui-checkbox label="Mostrar na Biblioteca (apps publicados)" [checked]="inCatalog()" (checkedChange)="inCatalog.set($event); dirty.set(true)" />
                   }
-                  <ui-checkbox label="Compartilhar como template na biblioteca" [checked]="isTemplate()" (checkedChange)="isTemplate.set($event); dirty.set(true)" />
+                  <ui-checkbox label="Compartilhar como template na Biblioteca" [checked]="isTemplate()" (checkedChange)="isTemplate.set($event); dirty.set(true)" />
                   @if (isFlow()) {
-                    <p class="muted small">Workflows rodam em segundo plano: não aparecem no catálogo. Só quem gerencia o workspace edita e vê as execuções.</p>
+                    <p class="muted small">Workflows rodam em segundo plano: não aparecem na Biblioteca como app. Só quem gerencia o workspace edita e vê as execuções.</p>
                   } @else if (isForm()) {
                     <p class="muted small">Quem pode responder e o link ficam em Compartilhar.</p>
                   } @else {

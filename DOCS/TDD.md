@@ -17,7 +17,7 @@ RH/TI e usuários admin/builder/usuário). Sem banco, sem HTTP, sem libs de mock
 
 | Suíte (JourneyTests.cs) | Jornada | Garante |
 |---|---|---|
-| `BuildAndPublishTests` | 1. Builder cria e publica | criar só no próprio departamento; usuário não abre editor/rascunho; publicar congela versão; rollback gera nova versão; clonar do catálogo sem dados; criar de template; catálogo por departamento; definição inválida rejeitada |
+| `BuildAndPublishTests` | 1. Builder cria e publica | criar só no próprio departamento; usuário não abre editor/rascunho; publicar congela versão; rollback gera nova versão; clonar da Biblioteca sem dados; criar de template; Biblioteca por departamento; definição inválida rejeitada |
 | `RecordTests` | 2. Usuário usa o app | validação/normalização por tipo; obrigatórios; campo só-builders invisível e ignorado; permissões de tabela; dados de rascunho × produção separados; CSV export/import com erros por linha |
 | `WorkflowTests` | 3. Automação | clique cria registro com inputs + e-mail + navegação; condição falsa não executa; callApi com template |
 | `ApprovalTests` | 4. Aprovação | registro vira Pendente, aprovador notificado, aprovação atualiza status e avisa solicitante; só o aprovador decide e uma única vez |

@@ -49,7 +49,7 @@ melhorias automaticamente.
 ### MVP do workflow
 | Feature | Status | Como ficou |
 |---|---|---|
-| Tipo de projeto "Workflow" | ✅ | `AppDefinition.Automation` (tipo derivado, sem coluna nova). Um workflow por projeto. Abas Workflow, Execuções, Segredos, Publicação. Não vai ao catálogo |
+| Tipo de projeto "Workflow" | ✅ | `AppDefinition.Automation` (tipo derivado, sem coluna nova). Um workflow por projeto. Abas Workflow, Execuções, Segredos, Publicação. Não aparece na Biblioteca como app |
 | Gatilhos | ✅ | Manual ("Executar agora"/"Testar"), agendado (hora/dia/semana ou **cron** de 5 campos) e **webhook** `POST /api/hooks/wf/{appId}` com `X-Webhook-Key` (corpo JSON vira `{{trigger.body.*}}`). Gatilhos de registro ficam para quando o projeto tiver tabelas próprias. **Chamado por outro projeto**: mini app ou formulário do workspace inicia com a ação "Iniciar workflow"; o gatilho declara um **esquema de entradas** tipadas (`{{input.nome}}`), mais `{{trigger.source}}` e `{{trigger.user}}` ([ADR 0019](ADR/0019-navegacao-e-workflows-entre-projetos.md)) |
 | Passos | ✅ | Chamar API (com **cabeçalhos**), Enviar e-mail, **Se/senão**, **Para cada** (lista JSON, até 1.000 itens), **Esperar** (até 1 h), **Transformar**. Criar/atualizar registro e aprovação ficam nas automações de mini app |
 | Saída entre passos | ✅ | Cada passo tem id; `{{steps.<id>.campo}}` (JSON achatado); `callApi` expõe `status` e `body`. Renomear o id atualiza as referências |

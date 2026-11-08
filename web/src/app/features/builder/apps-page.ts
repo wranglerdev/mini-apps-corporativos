@@ -22,19 +22,19 @@ import { runLink } from '../home/home';
                 <div>
                   <a class="index__name" [routerLink]="['/builder', a.id]">{{ a.name }}</a>
                   <div class="index__meta">
-                    <span class="chip">{{ a.kind === 'form' ? 'Formulário' : 'Mini app' }}</span>
+                    <span class="chip">{{ kindLabel[a.kind] }}</span>
                     <span class="chip">{{ wsName(a.workspaceId) }}</span>
                     @if (a.publishedVersion) {
                       <span class="chip chip--pen">Publicado, versão {{ a.publishedVersion }}</span>
                     } @else {
                       <span class="chip">Rascunho</span>
                     }
-                    @if (a.inCatalog) { <span class="chip">No catálogo</span> }
+                    @if (a.inCatalog) { <span class="chip">Na biblioteca</span> }
                     @if (a.isTemplate) { <span class="chip">Template</span> }
                   </div>
                 </div>
                 <div class="index__actions">
-                  @if (a.publishedVersion) {
+                  @if (a.publishedVersion && a.kind !== 'workflow') {
                     <a uiButton variant="ghost" [routerLink]="link(a)">Abrir</a>
                   }
                   <button uiButton variant="ghost" (click)="duplicate(a)">Duplicar</button>
@@ -43,7 +43,7 @@ import { runLink } from '../home/home';
                 </div>
               </div>
             } @empty {
-              <app-empty title="Você ainda não tem apps" text="Crie o primeiro ao lado ou comece por um dos templates abaixo." />
+              <app-empty title="Você ainda não tem apps" text="Crie o primeiro ao lado ou comece por um template da Biblioteca." />
             }
           </div>
         </app-section>
@@ -58,17 +58,6 @@ import { runLink } from '../home/home';
         </app-section>
       </div>
 
-      <app-section title="Templates" description="Modelos prontos compartilhados entre as áreas. Cria uma cópia editável no seu workspace.">
-        <div class="tiles">
-          @for (t of templates(); track t.id) {
-            <div class="tile">
-              <strong class="tile__name">{{ t.name }}</strong>
-              <p class="tile__text">{{ t.description }}</p>
-              <button uiButton (click)="useTemplate(t)" [disabled]="!workspaceId()">Usar template</button>
-            </div>
-          }
-        </div>
-      </app-section>
     </app-page>
   `,
 })
@@ -93,6 +82,7 @@ export class AppsPage {
   }
 
   protected link = runLink;
+  protected readonly kindLabel: Record<string, string> = { app: 'Mini app', form: 'Formulário', workflow: 'Workflow' };
   protected wsName = (id: string) => this.workspaces().find((w) => w.id === id)?.name ?? '';
 
   protected create() {
@@ -100,12 +90,6 @@ export class AppsPage {
       const app = await this.api.createApp(this.workspaceId(), this.name(), this.templateId() || null);
       this.router.navigate(['/builder', app.id]);
     });
-  }
-
-  protected useTemplate(t: AppSummary) {
-    this.name.set(t.name);
-    this.templateId.set(t.id);
-    return this.create();
   }
 
   protected duplicate(a: AppSummary) {

@@ -1,7 +1,7 @@
 # PRD — Mini apps (MVP)
 
 Criador de mini apps corporativos, low-code, inspirado no Bubble. Builders de cada unidade montam apps
-(páginas + banco + workflows) sem código, e usuários finais usam a versão publicada pelo catálogo interno.
+(páginas + banco + workflows) sem código, e usuários finais usam a versão publicada pela Biblioteca.
 
 ## Princípios
 
@@ -35,7 +35,7 @@ Decididas em 2026-11-07. Cada área imita o layout da referência, sobre a mesma
 | Papel | Pode |
 |---|---|
 | **Admin** (governança central) | Tudo: todos os workspaces, criar workspaces, log de auditoria, decidir qualquer aprovação |
-| **Builder** | Criar/editar/publicar apps nos workspaces do **seu departamento**; usar templates; clonar apps do catálogo |
+| **Builder** | Criar/editar/publicar apps nos workspaces do **seu departamento**; usar templates; clonar apps da Biblioteca |
 | **Usuário** | Usar apps publicados liberados para o seu departamento; aprovar o que for endereçado a ele |
 
 Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
@@ -44,7 +44,7 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 
 1. **Builder cria e publica**: Builder → Novo app (em branco ou template) → Dados (tabelas/campos) → Design
    (arrastar componentes) → Workflows → Visualizar rascunho → Publicar → URL interna `/run/{slug}`.
-2. **Usuário usa**: Catálogo → Abrir → preenche formulário gerado da tabela → vê registro na tabela/lista/gráfico
+2. **Usuário usa**: Biblioteca → Abrir → preenche formulário gerado da tabela → vê registro na tabela/lista/gráfico
    → exporta CSV / imprime PDF.
 3. **Automação**: registro criado/atualizado ou clique em botão → condição → ações (salvar, atualizar, e-mail,
    navegar, chamar API, solicitar aprovação).
@@ -88,10 +88,10 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 | Feature | Status | Como foi resolvido |
 |---|---|---|
 | Biblioteca compartilhável | ✅ | Qualquer app pode ser marcado "template" e aparece para builders de todas as unidades |
-| Duplicar app (de outra unidade) | ✅ | Clona definição (sem dados) de app próprio, template ou do catálogo |
+| Duplicar app (de outra unidade) | ✅ | Clona definição (sem dados) de app próprio, template ou da Biblioteca |
 | Versionamento com rollback | ✅ | Cada publicação gera versão imutável; rollback publica nova versão com o conteúdo antigo. Renomear campo migra os dados (rascunho ao salvar, produção ao publicar/rollback) |
 | Modo builder × modo usuário | ✅ | `/builder/*` (protegido por papel) × `/run/{slug}` (sem nada do editor). Aba do editor na URL (`/builder/{id}?aba=execucoes`): reload e link abrem na mesma aba |
-| Catálogo interno | ✅ | `/catalog` lista apps publicados e liberados para o departamento |
+| Biblioteca | ✅ | `/biblioteca` (antigo Catálogo; `/catalog` redireciona): **templates** (builders, "Usar template") e apps publicados liberados para o departamento ([ADR 0020](ADR/0020-catalogo-vira-biblioteca.md)) |
 | Formulários | ✅ | Ver [PRD-FORMS.md](PRD-FORMS.md): perguntas com lógica de pulo, `/f/{slug}`, link público opcional, resumo e respostas |
 | Workflows | ✅ | Ver [PRD-WORKFLOWS.md](PRD-WORKFLOWS.md): projeto próprio, passos aninhados, fila com histórico em waterfall, tentativas, segredos, webhook e cron |
 | Início | ✅ | `/` (estilo Figma): criar Mini app, Formulário ou Workflow (abre o editor "sem título"), mais o card **Catálogo** "Em breve" (próxima feature: dados enviados entre os apps num só lugar); recentes em grade com miniatura e filtro por tipo (builder) ou apps para você (usuário). O que cada papel pode fazer fica na barra lateral, com contador de aprovações |
@@ -139,5 +139,6 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-07 | Condições com várias regras (E/OU) na visibilidade, nas automações e no "se" dos workflows |
 | 2026-11-08 | Aba ativa do editor persistida na URL (`?aba=`) para reload e compartilhamento |
 | 2026-11-08 | Variáveis tipadas nos workflows (padrão, apelido), Transformar por operações, autocomplete `{{` e arrastar variáveis |
+| 2026-11-08 | Catálogo vira Biblioteca (`/biblioteca`), com os templates; "Catálogo" fica para a próxima feature |
 | 2026-11-08 | Navegação e workflows entre projetos: Iniciar workflow com entradas tipadas, Abrir projeto ou link com pré-preenchimento, redirecionamento condicional do formulário |
 | 2026-11-08 | Variáveis também nas automações de mini app/formulário, nos textos do mini app (`{{user.name}}`, inputs) e nas perguntas/tela final do formulário (respostas anteriores) |
