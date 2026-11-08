@@ -15,6 +15,7 @@ export type Option = string | { value: string; label: string };
 /** Valores de status que viram carimbo automaticamente (tabelas, aprovações). */
 export const STAMP_TONES: Record<string, 'ok' | 'bad' | 'wait'> = {
   Aprovado: 'ok', Rejeitado: 'bad', Pendente: 'wait', Fechado: 'ok', Feito: 'ok', Concluído: 'ok', Ganho: 'ok', Perdido: 'bad',
+  Resolvido: 'ok', Aberto: 'wait', 'Em andamento': 'wait',
 };
 
 

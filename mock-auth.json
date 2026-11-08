@@ -4,6 +4,7 @@
     { "email": "admin@corp.local", "name": "Admin Governança", "role": "admin", "department": "Governança" },
     { "email": "ana@corp.local", "name": "Ana Souza", "role": "builder", "department": "RH" },
     { "email": "bruno@corp.local", "name": "Bruno Lima", "role": "builder", "department": "TI" },
+    { "email": "marina@corp.local", "name": "Marina Costa", "role": "builder", "department": "Financeiro" },
     { "email": "joao@corp.local", "name": "João Pereira", "role": "user", "department": "RH" },
     { "email": "carla@corp.local", "name": "Carla Mendes", "role": "user", "department": "Financeiro" }
   ]

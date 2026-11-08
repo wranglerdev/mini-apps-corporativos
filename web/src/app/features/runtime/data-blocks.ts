@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, input, linkedSignal, signal } from '@angular/core';
 import { Api, ExportFormat, saveBlob } from '../../core/api';
 import { canWrite, visibleFields } from '../../core/auth/auth';
-import { DataRecord, GroupCount } from '../../core/models';
+import { DataRecord, FieldDef, GroupCount } from '../../core/models';
 import { UI, UiRow } from '../../ui/ui';
 import { FormBlock } from './form-block';
 import { RunContext, debounced, fileParts, useRecordPage, useRelations } from './run-context';
@@ -87,7 +87,7 @@ export class TableBlock {
           const v = r.data[f.name] ?? '';
           if (f.type === 'relation') return [f.name, this.relations()[f.name]?.get(v) ?? v];
           if (f.type === 'file') return [f.name, v ? fileParts(v).name : ''];
-          return [f.name, v];
+          return [f.name, cellText(f.type, v)];
         }),
       ),
     })),
@@ -209,6 +209,13 @@ export class ChartBlock {
 
 export const PAGE_SIZE = 20;
 export const LIST_PAGE_SIZE = 12;
+
+/** Valor gravado (número invariante, data yyyy-MM-dd) no formato brasileiro, como no PDF. Edição continua no valor cru. */
+export function cellText(type: FieldDef['type'], value: string): string {
+  if (type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value.split('-').reverse().join('/');
+  if (type === 'number' && value !== '' && !isNaN(Number(value))) return Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  return value;
+}
 
 /** Contagens do servidor → barras (valor vazio vira "(vazio)"). */
 export const toChart = (counts: GroupCount[]) => counts.map((c) => ({ label: c.label || '(vazio)', value: c.value }));

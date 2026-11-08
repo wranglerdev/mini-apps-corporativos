@@ -2,7 +2,10 @@ using Domain;
 
 namespace Infra;
 
-/// <summary>Dados iniciais: workspaces por unidade, biblioteca de templates e dois apps publicados no catálogo.</summary>
+/// <summary>
+/// Dados iniciais: workspaces por unidade, biblioteca de templates e os projetos de demonstração (ver Showcase),
+/// com dados de produção, versões, aprovações, auditoria e execuções de workflow na fila (o worker roda ao subir a API).
+/// </summary>
 public static class Seed
 {
     public static void Run(AppDbContext db)
@@ -10,34 +13,87 @@ public static class Seed
         if (db.Workspaces.Any()) return;
 
         var library = new Workspace { Name = "Biblioteca Central", Department = "Governança" };
-        var rh = new Workspace { Name = "Recursos Humanos", Department = "RH" };
-        var ti = new Workspace { Name = "Tecnologia", Department = "TI" };
-        var fin = new Workspace { Name = "Financeiro", Department = "Financeiro" };
-        db.Workspaces.AddRange(library, rh, ti, fin);
+        var areas = new[]
+        {
+            new Workspace { Name = "Recursos Humanos", Department = "RH" },
+            new Workspace { Name = "Tecnologia", Department = "TI" },
+            new Workspace { Name = "Financeiro", Department = "Financeiro" }
+        };
+        db.Workspaces.Add(library);
+        db.Workspaces.AddRange(areas);
 
-        var templates = Templates.All().Select(t => new App
+        db.Apps.AddRange(Templates.All().Select(t => new App
         {
             WorkspaceId = library.Id, Name = t.Name, Slug = Slug.From(t.Name), Description = t.Description,
-            Draft = t.Definition, IsTemplate = true, CreatedBy = "seed"
-        }).ToList();
-        db.Apps.AddRange(templates);
+            Draft = t.Definition, IsTemplate = true, CreatedBy = "seed", CreatedAt = DateTime.UtcNow.AddDays(-60), UpdatedAt = DateTime.UtcNow.AddDays(-60)
+        }));
 
-        Publish(db, rh.Id, "Solicitações RH", templates.First(t => t.Name.StartsWith("Solicitações")));
-        Publish(db, ti.Id, "Chamados TI", templates.First(t => t.Name.StartsWith("Controle de chamados")));
+        var now = DateTime.UtcNow;
+        var hour = 0;
+        foreach (var p in Showcase.Projects(DateTime.Today))
+        {
+            var ws = areas.First(w => w.Department == p.Department);
+            p.Definition.Validate();
+            var created = now.AddDays(-p.CreatedDaysAgo);
+            var app = new App
+            {
+                Id = p.Id, WorkspaceId = ws.Id, Name = p.Name, Slug = Slug.From(p.Name), Description = p.Description,
+                Draft = JsonUtil.Clone(p.Definition), Published = JsonUtil.Clone(p.Definition), PublishedVersion = p.Versions,
+                InCatalog = !p.Definition.Automation, AllowedDepartments = p.AllowedDepartments, CreatedBy = p.Owner,
+                CreatedAt = created, UpdatedAt = now.AddHours(-hour++ * 5)
+            };
+            db.Apps.Add(app);
+            Audit(db, created, p.Owner, "app.create", app.Id, p.Name);
+            for (var v = 1; v <= p.Versions; v++)
+            {
+                var at = created.AddDays((double)p.CreatedDaysAgo * v / (p.Versions + 1));
+                db.AppVersions.Add(new AppVersion { AppId = app.Id, Number = v, Definition = JsonUtil.Clone(p.Definition), PublishedBy = p.Owner, PublishedAt = at });
+                Audit(db, at, p.Owner, "app.publish", app.Id, $"v{v}");
+            }
+
+            foreach (var r in p.Records) AddRecord(db, app, p.Definition, r, now);
+            foreach (var (key, count) in p.FormCounters) db.FormCounters.Add(new FormCounter { AppId = app.Id, Key = key, Count = count });
+
+            var number = 0;
+            foreach (var (trigger, data, by) in p.Runs)
+                db.WorkflowRuns.Add(new WorkflowRun
+                {
+                    AppId = app.Id, Env = Env.Prod, WorkflowId = p.Definition.Workflows[0].Id, Number = ++number, Version = p.Versions,
+                    Trigger = trigger, TriggerData = data, RequestedBy = by, CreatedAt = now.AddSeconds(number)
+                });
+        }
         db.SaveChanges();
     }
 
-    private static void Publish(AppDbContext db, Guid workspaceId, string name, App template)
+    /// <summary>Registro em produção (e uma cópia no rascunho, para o editor ter dados de teste) + aprovação, se houver.</summary>
+    private static void AddRecord(AppDbContext db, App app, AppDefinition def, ShowcaseRecord r, DateTime now)
     {
-        var app = new App
+        var table = def.Table(r.TableId);
+        var data = RecordValidator.Normalize(r.Data, table.Fields, partial: false);
+        var at = now.AddDays(-r.DaysAgo).AddMinutes(-(r.Data.GetHashCode() & 0x1FF));
+        var record = new DataRecord { AppId = app.Id, Env = Env.Prod, TableId = table.Id, Data = data, CreatedBy = r.CreatedBy, CreatedAt = at };
+        db.Records.Add(record);
+        db.Records.Add(new DataRecord { AppId = app.Id, Env = Env.Draft, TableId = table.Id, Data = new(data), CreatedBy = r.CreatedBy, CreatedAt = at });
+        Audit(db, at, r.CreatedBy, "record.create", app.Id, table.Name);
+        if (r.Approver is null) return;
+
+        var status = data.GetValueOrDefault("Status") switch
         {
-            WorkspaceId = workspaceId, Name = name, Slug = Slug.From(name), Description = template.Description,
-            Draft = JsonUtil.Clone(template.Draft), Published = JsonUtil.Clone(template.Draft), PublishedVersion = 1,
-            InCatalog = true, CreatedBy = "seed"
+            "Aprovado" => ApprovalStatus.Approved,
+            "Rejeitado" => ApprovalStatus.Rejected,
+            _ => ApprovalStatus.Pending
         };
-        db.Apps.Add(app);
-        db.AppVersions.Add(new AppVersion { AppId = app.Id, Number = 1, Definition = JsonUtil.Clone(template.Draft), PublishedBy = "seed" });
+        var decided = status == ApprovalStatus.Pending ? (DateTime?)null : at.AddHours(6);
+        db.Approvals.Add(new Approval
+        {
+            AppId = app.Id, Env = Env.Prod, TableId = table.Id, RecordId = record.Id, Title = r.ApprovalTitle ?? table.Name,
+            Approver = r.Approver, RequestedBy = r.CreatedBy, Status = status, Comment = r.Comment, CreatedAt = at, DecidedAt = decided
+        });
+        if (decided is { } d) Audit(db, d, r.Approver, "approval.decide", app.Id, Approval.Text(status));
     }
+
+    private static void Audit(AppDbContext db, DateTime at, string user, string action, Guid appId, string details) =>
+        db.AuditEntries.Add(new AuditEntry { At = at, User = user, Action = action, Entity = "app", EntityId = appId.ToString(), Details = details });
 }
 
 public record TemplateSpec(string Name, string Description, AppDefinition Definition);

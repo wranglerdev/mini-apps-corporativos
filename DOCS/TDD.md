@@ -52,6 +52,10 @@ RH/TI e usuários admin/builder/usuário). Sem banco, sem HTTP, sem libs de mock
 |---|---|---|
 | `FlowTests` | 7. Workflow | nasce sem páginas com gatilho manual; saída de um passo alimenta os seguintes com "se" e "para cada"; repetição com espera crescente; esgotadas as tentativas falha, para e avisa quem gerencia; tempo limite; segredo usado em URL e cabeçalho e mascarado no histórico; reexecutar a partir de um passo reaproveita os anteriores; webhook com chave e corpo como variável; agendado por cron enfileira na hora; cálculo e validação de cron; definição inválida recusada; só quem gerencia executa e vê segredos; teste no rascunho e retenção de 30 dias |
 
+| Suíte (SeedTests.cs) | Jornada | Garante |
+|---|---|---|
+| `SeedTests` | Demonstração | todo projeto do seed valida e seus registros passam no `RecordValidator`; cada área tem mini app, formulário e workflow; "Iniciar workflow" aponta para workflow chamado da mesma área com as entradas certas; execuções na fila têm entradas do tipo do gatilho |
+
 | Suíte (DocumentTests.cs) | Jornada | Garante |
 |---|---|---|
 | `SpreadsheetTests` | Excel | escreve/lê com acentos, XML especial, vazios e coluna numérica; partes OpenXML obrigatórias; lê arquivo no formato do Excel (sharedStrings, colunas puladas, relação absoluta); arquivo inválido vira erro de validação |
@@ -69,7 +73,7 @@ RH/TI e usuários admin/builder/usuário). Sem banco, sem HTTP, sem libs de mock
 | `features/forms/form-flow.spec.ts` | 6. Formulário | caminho igual ao backend (mesma pesquisa dos `FormTests`); próxima pergunta e fim; validação antes de avançar; letras das opções; editor: nova pergunta cria o campo, trocar tipo ajusta campo e limpa regras, remover limpa regras que apontavam, mover não deixa pulo para trás, destinos de regra |
 | `features/flows/flow-ops.spec.ts` | 7. Workflow | paleta insere no fim, depois do selecionado ou dentro de se/para cada com ids únicos; remover/mover na mesma lista; renomear id atualiza referências e valida; variáveis disponíveis por passo; resumos de gatilho (cron) e passos; linha do tempo em waterfall; resultado por passo no teste |
 | `core/auth/auth.spec.ts` | RBAC no front | papéis; permissões de tabela; campos ocultos; campos só leitura fora do formulário |
-| `features/runtime/runtime.spec.ts` | 2/3. Runtime | formulário gerado mostra campos visíveis; salvar cria registro, aplica log do workflow, recarrega e navega; erro vira aviso; tabela consulta o servidor, troca de página e busca com espera (uma consulta só, página 1); gráfico com "(vazio)"; `isVisible` com usuário/inputs; runner renderiza container e esconde o filho condicional |
+| `features/runtime/runtime.spec.ts` | 2/3. Runtime | formulário gerado mostra campos visíveis; salvar cria registro, aplica log do workflow, recarrega e navega; erro vira aviso; tabela consulta o servidor, troca de página e busca com espera (uma consulta só, página 1); gráfico com "(vazio)"; data e número da tabela em pt-BR; `isVisible` com usuário/inputs; runner renderiza container e esconde o filho condicional |
 
 ## O que não é testado (de propósito)
 

@@ -79,6 +79,7 @@ Regras centralizadas em `api/src/Domain/Identity/Identity.cs` (`AccessRules`).
 | Feature | Status | Como foi resolvido |
 |---|---|---|
 | Templates prontos | ✅ | Solicitações c/ aprovação, Checklist, Inventário, Chamados, Onboarding, Reservas, CRM simples, Cadastros (seed) |
+| Cenário de demonstração | ✅ | Seed com 11 projetos em RH, TI e Financeiro (mini app, formulário e workflow por área, que se chamam), dados, aprovações, versões e execuções reais ([ADR 0023](ADR/0023-seed-de-demonstracao.md)) |
 | Importação/exportação Excel/CSV | ✅ | `.xlsx` nativo (cabeçalho em negrito e congelado, números como número) e CSV (`;` + BOM). Importa `.xlsx` (inclusive salvo pelo Excel, com datas seriais) ou CSV, com relatório de erros por linha. Exportação reimportável |
 | Dashboards e relatórios | ✅ básico | Gráfico de barras (contagem agregada no banco) + tabela na tela. Relatório **PDF gerado no servidor**: mesmos gráficos do app (cores dos status), tabela com quebra de linha nas células (até 6 linhas), valores em pt-BR, relações pelo rótulo, cabeçalho repetido e "Página X de N". "Imprimir página" do navegador continua disponível |
 | Anexos e upload | ✅ | Campo arquivo → `IFileStorage` (disco local), isolado por app: só quem acessa o app envia/baixa |
@@ -144,3 +145,4 @@ O porquê de cada entrega está nos ADRs: [DOCS/ADR](ADR/README.md).
 | 2026-11-08 | Catálogo vira Biblioteca (`/biblioteca`), com os templates; "Catálogo" fica para a próxima feature |
 | 2026-11-08 | Navegação e workflows entre projetos: Iniciar workflow com entradas tipadas, Abrir projeto ou link com pré-preenchimento, redirecionamento condicional do formulário |
 | 2026-11-08 | Variáveis também nas automações de mini app/formulário, nos textos do mini app (`{{user.name}}`, inputs) e nas perguntas/tela final do formulário (respostas anteriores) |
+| 2026-11-08 | Seed de demonstração (RH, TI e Financeiro) com dados e execuções; tabela do app em pt-BR; README novo com prints |

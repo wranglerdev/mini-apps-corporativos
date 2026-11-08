@@ -30,3 +30,4 @@ ADR aceito não é reescrito; uma decisão nova o substitui (`Substituído por N
 | [0020](0020-catalogo-vira-biblioteca.md) | "Catálogo" vira "Biblioteca", com os templates | ui | Aceito | 2026-11-08 |
 | [0021](0021-autosave-publicar-com-mudanca-e-menu-dos-cards.md) | Salvamento automático, publicar só com mudança e menu nos cards | ui | Aceito | 2026-11-08 |
 | [0022](0022-mini-app-publicado-em-tela-limpa.md) | Mini app publicado em tela limpa, para o usuário final | ui | Aceito | 2026-11-08 |
+| [0023](0023-seed-de-demonstracao.md) | Seed de demonstração com cenário corporativo | feature | Aceito | 2026-11-08 |

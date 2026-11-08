@@ -6,7 +6,7 @@ import { AuthService } from '../../core/auth/auth';
 import { AppRunner } from './app-runner';
 import { Api } from '../../core/api';
 import { AppDefinition, PagedRecords, Props, RecordWriteResult } from '../../core/models';
-import { PAGE_SIZE, TableBlock, toChart } from './data-blocks';
+import { PAGE_SIZE, TableBlock, cellText, toChart } from './data-blocks';
 import { FormBlock } from './form-block';
 import { RunContext } from './run-context';
 
@@ -151,5 +151,12 @@ describe('Runtime', () => {
     expect(toChart([{ label: 'Alta', value: 2 }, { label: null, value: 1 }])).toEqual([
       { label: 'Alta', value: 2 }, { label: '(vazio)', value: 1 },
     ]);
+  });
+
+  it('tabela mostra data e número no formato brasileiro', () => {
+    expect(cellText('date', '2026-12-23')).toBe('23/12/2026');
+    expect(cellText('number', '1840.9')).toBe('1.840,9');
+    expect(cellText('number', '')).toBe('');
+    expect(cellText('text', '2026-12-23')).toBe('2026-12-23');
   });
 });
