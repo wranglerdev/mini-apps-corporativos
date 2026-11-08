@@ -62,6 +62,11 @@ Tabelas SQLite: `Workspaces`, `Apps`, `AppVersions`, `Records`, `Approvals`, `Au
   `Variables.Init`/`ApplyOps`/`RefreshAliases`. No front, `builder/variable-ops.ts` concentra as regras (tipos, operações,
   `automationVarsAt`, `pageVarItems`) e `VarPanel`/`VarEditor`/`TransformOpsEditor` são usados no workflow, nas automações,
   no design e no formulário. Textos do app e do formulário passam por `render` (`runtime/visibility.ts`) no navegador.
+- **Entre projetos**: ação `startFlow` (automação de mini app/formulário) → `FlowQueue.EnqueueAsync` no projeto de workflow
+  do mesmo workspace, gatilho `call`, mesmo ambiente; o `FlowRunner` põe as entradas em `input.*` (`Variables.InitInputs`).
+  Ação `openLink` → `WorkflowResult.OpenUrl` (`Links.ProjectPath`/`WithQuery`) → `RunContext.open` no navegador; formulário e
+  mini app leem a query string (`runtime/links.ts`, `prefillFrom`). Redirecionamento do formulário decidido no
+  `FormService` (regras → padrão).
 - **Encadeamento de workflows**: `WorkflowEngine` carrega `depth`; `createRecord`/`updateRecord` chamam `RunTriggersAsync`
   (registro criado/atualizado) e `runWorkflow` chama `RunAsync` com `depth + 1`; acima de `MaxChainDepth` (5) a cadeia para.
   `ApprovalService.DecideAsync` dispara "registro atualizado" após gravar o status.
